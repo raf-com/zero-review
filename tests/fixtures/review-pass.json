@@ -1,0 +1,39 @@
+{
+  "schema_version": "zero-codereview.findings.v1",
+  "repository": "C:\\webapp_core",
+  "required_controls": ["lint", "static_analysis", "security", "approval"],
+  "findings": [
+    {
+      "id": "lint-1",
+      "source": "lint",
+      "severity": "info",
+      "summary": "lint command passed",
+      "evidence": ["fixture"],
+      "status": "verified"
+    },
+    {
+      "id": "static-1",
+      "source": "static_analysis",
+      "severity": "info",
+      "summary": "static analysis passed",
+      "evidence": ["fixture"],
+      "status": "verified"
+    },
+    {
+      "id": "security-1",
+      "source": "security",
+      "severity": "info",
+      "summary": "security scan passed",
+      "evidence": ["fixture"],
+      "status": "verified"
+    },
+    {
+      "id": "approval-1",
+      "source": "approval",
+      "severity": "info",
+      "summary": "approval policy result supplied",
+      "evidence": ["fixture"],
+      "status": "verified"
+    }
+  ]
+}

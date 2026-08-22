@@ -1,0 +1,24 @@
+name: zero-codereview-ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.96.0"
+          components: rustfmt, clippy
+      - shell: powershell
+        run: .\scripts\ci.ps1 -SkipApexContract
+      - uses: actions/upload-artifact@v4
+        with:
+          name: security-scan
+          path: artifacts/ci/

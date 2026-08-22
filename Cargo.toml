@@ -1,0 +1,40 @@
+[package]
+name = "zero-codereview"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Evidence-first code-review control plane for zero and Apex infrastructure"
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+name = "zero_codereview"
+path = "src/lib.rs"
+
+[[bin]]
+name = "zero-codereview"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+clap = { version = "4.5", features = ["derive"] }
+hex = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time"] }
+walkdir = "2"
+
+[dev-dependencies]
+assert_cmd = "2"
+predicates = "3"
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"

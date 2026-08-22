@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.zero/schemas/zero-codereview/review-input-v1.schema.json",
+  "title": "zero-codereview normalized findings",
+  "type": "object",
+  "required": ["schema_version", "repository", "findings"],
+  "properties": {
+    "schema_version": { "const": "zero-codereview.findings.v1" },
+    "repository": { "type": "string", "minLength": 1 },
+    "required_controls": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "source", "severity", "summary", "status"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "source": { "type": "string", "minLength": 1 },
+          "severity": { "enum": ["info", "warning", "block"] },
+          "summary": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "array", "items": { "type": "string" } },
+          "status": { "enum": ["verified", "partial", "blocked", "owner_gated", "not_proven"] }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

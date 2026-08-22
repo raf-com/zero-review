@@ -1,0 +1,18 @@
+{
+  "repository": "C:\\webapp_core",
+  "adapters": {
+    "pr_review": "C:\\zero-pr-review\\target\\debug\\zero-pr-review.exe",
+    "lint": "C:\\zero-lint\\target\\debug\\zero-lint.exe",
+    "github": "C:\\zero-github\\target\\debug\\zero-github.exe",
+    "proof": "C:\\zero-proof\\target\\debug\\zero-proof.exe"
+  },
+  "apex": {
+    "dispatch_health": "http://127.0.0.1:8009/health",
+    "trace_package": "C:\\apex-trace-rs"
+  },
+  "policy": {
+    "block_on_blocking_finding": true,
+    "require_verified_evidence_for_pass": true,
+    "allow_network_mutation": false
+  }
+}

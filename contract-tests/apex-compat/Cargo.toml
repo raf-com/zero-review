@@ -1,0 +1,13 @@
+[package]
+name = "zero-codereview-apex-compat"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+serde_json = "1"
+trace_store = { path = "../../../apex-trace-rs/crates/trace_store" }
+
+[[test]]
+name = "apex_event"
+path = "apex_event.rs"

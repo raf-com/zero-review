@@ -1,5 +1,13 @@
 {
   "schema_version": "zero-review.ecosystem-config.v1",
+  "discovery": [
+    {
+      "parent": "C:\\",
+      "prefixes": ["zero-", "zero_", "apex-", "apex_"],
+      "exclude_name_contains": ["-wt", "worktree", "-audit-", "-consumer-"],
+      "max_candidates": 512
+    }
+  ],
   "roots": [
     {"id":"webapp_core","path":"C:\\webapp_core","family":"repository","capabilities":["application","pr-workflows","tests"],"review_needs":["all"]},
     {"id":"zero-review","path":"C:\\zero-review","family":"zero","capabilities":["review-policy","inventory","receipts"],"review_needs":["all"]},

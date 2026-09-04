@@ -1,0 +1,135 @@
+name: zero-review-release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ((git cat-file -t '${{ github.ref_name }}') -ne 'tag') { throw 'release requires an annotated tag' }
+          gh release view '${{ github.ref_name }}' 2>$null
+          if ($LASTEXITCODE -eq 0) { throw 'release already exists; immutable release will not be replaced' }
+          $tagVersion = '${{ github.ref_name }}' -replace '^v', ''
+          $packageVersion = (Select-String -Path Cargo.toml -Pattern '^version\s*=\s*"([^"]+)"$').Matches.Groups[1].Value
+          if ($tagVersion -ne $packageVersion) { throw "tag version $tagVersion does not match Cargo.toml $packageVersion" }
+          rustup toolchain install 1.96.0 --profile minimal --component rustfmt,clippy
+          rustup override set 1.96.0
+          .\scripts\ci.ps1
+
+  windows:
+    needs: verify
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - shell: powershell
+        run: |
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup override set 1.96.0
+          .\scripts\package-release.ps1 -Target windows-x86_64 -Version ('${{ github.ref_name }}' -replace '^v', '') -Commit '${{ github.sha }}'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zero-review-windows-x86_64
+          path: |
+            dist/*
+          if-no-files-found: error
+
+  linux:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.96.0 --profile minimal
+          rustup override set 1.96.0
+          cargo build --release --locked
+          root='dist/zero-review-linux-x86_64-bundle'
+          mkdir -p "$root"
+          cp target/release/zero-review README.md "$root/"
+          cp -R schemas "$root/"
+          cargo metadata --locked --format-version 1 > "$root/dependency-inventory.json"
+          binary_hash="$(sha256sum "$root/zero-review" | cut -d' ' -f1)"
+          version='${{ github.ref_name }}'
+          version="${version#v}"
+          printf '{"schema_version":"zero-review.release.v1","version":"%s","commit":"%s","target":"linux-x86_64","binary_sha256":"%s"}\n' \
+            "$version" '${{ github.sha }}' "$binary_hash" > "$root/release-manifest.json"
+          cp "$root/zero-review" dist/zero-review-linux-x86_64
+          cp "$root/release-manifest.json" dist/zero-review-linux-x86_64.manifest.json
+          (cd dist && sha256sum zero-review-linux-x86_64 > zero-review-linux-x86_64.sha256)
+          (cd dist && sha256sum zero-review-linux-x86_64.manifest.json > zero-review-linux-x86_64.manifest.json.sha256)
+          tar -C dist -czf dist/zero-review-linux-x86_64.tar.gz zero-review-linux-x86_64-bundle
+          (cd dist && sha256sum zero-review-linux-x86_64.tar.gz > zero-review-linux-x86_64.tar.gz.sha256)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zero-review-linux-x86_64
+          path: |
+            dist/zero-review-linux-x86_64.tar.gz
+            dist/zero-review-linux-x86_64.tar.gz.sha256
+            dist/zero-review-linux-x86_64
+            dist/zero-review-linux-x86_64.sha256
+            dist/zero-review-linux-x86_64.manifest.json
+            dist/zero-review-linux-x86_64.manifest.json.sha256
+          if-no-files-found: error
+
+  sbom:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - shell: bash
+        run: |
+          set -euo pipefail
+          cargo install cargo-cyclonedx --version 0.5.9 --locked
+          cargo cyclonedx --format json --override-filename zero-review.cdx.json
+          mkdir -p dist
+          cp zero-review.cdx.json dist/zero-review.cdx.json
+          (cd dist && sha256sum zero-review.cdx.json > zero-review.cdx.json.sha256)
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: zero-review-sbom
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: [windows, linux, sbom]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
+        with:
+          subject-path: dist/*
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view '${{ github.ref_name }}' >/dev/null 2>&1; then
+            echo 'release already exists; refusing to mutate immutable release' >&2
+            exit 1
+          fi
+          gh release create '${{ github.ref_name }}' dist/* --verify-tag --generate-notes

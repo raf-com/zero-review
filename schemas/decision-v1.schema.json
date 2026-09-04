@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raf-com.github.io/zero-review/schemas/decision-v1.schema.json",
+  "title": "Zero Review decision v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["decision", "reasons", "missing_controls", "finding_count", "blocking_count", "unproven_count"],
+  "properties": {
+    "decision": { "enum": ["pass", "needs_review", "block"] },
+    "reasons": { "type": "array", "items": { "type": "string" } },
+    "missing_controls": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "finding_count": { "type": "integer", "minimum": 0 },
+    "blocking_count": { "type": "integer", "minimum": 0 },
+    "unproven_count": { "type": "integer", "minimum": 0 }
+  }
+}

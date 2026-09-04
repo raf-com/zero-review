@@ -5,7 +5,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $packageRoot = Split-Path -Parent $PSScriptRoot
-$artifactRoot = Join-Path $packageRoot 'artifacts\ci'
+$artifactRoot = Join-Path (Join-Path $packageRoot 'artifacts') 'ci'
+$securityFixture = Join-Path (Join-Path $packageRoot 'tests') 'fixtures/security-sensitive.diff'
+$apexManifest = Join-Path (Join-Path $packageRoot 'contract-tests') 'apex-compat/Cargo.toml'
 New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
 
 Push-Location $packageRoot
@@ -19,11 +21,11 @@ try {
     cargo test --all-targets --locked
     if ($LASTEXITCODE -ne 0) { throw "cargo test failed" }
 
-    cargo run --locked -- security-scan --input tests\fixtures\security-sensitive.diff --out (Join-Path $artifactRoot 'security-scan.json')
+    cargo run --locked -- security-scan --input $securityFixture --out (Join-Path $artifactRoot 'security-scan.json')
     if ($LASTEXITCODE -ne 0) { throw "security fixture scan failed" }
 
     if (-not $SkipApexContract) {
-        cargo test --manifest-path contract-tests\apex-compat\Cargo.toml --locked
+        cargo test --manifest-path $apexManifest --locked
         if ($LASTEXITCODE -ne 0) { throw "Apex compatibility test failed" }
     }
 

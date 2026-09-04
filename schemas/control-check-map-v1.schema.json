@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raf-com.github.io/zero-review/schemas/control-check-map-v1.schema.json",
+  "title": "Zero Review trusted prerequisite check map v1",
+  "type": "object",
+  "required": ["schema_version", "controls"],
+  "properties": {
+    "schema_version": { "const": "zero-review.control-check-map.v1" },
+    "controls": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "required": ["name", "app_slug"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "app_slug": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

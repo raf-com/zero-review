@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-review.local/schemas/ledger-checkpoint-v1.schema.json",
+  "title": "Zero Review ledger checkpoint v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "ledger_id", "entry_count", "last_entry_hash", "key_id", "created_at", "signature_algorithm", "signature"],
+  "properties": {
+    "schema_version": { "const": "zero-review.ledger-checkpoint.v1" },
+    "ledger_id": { "type": "string", "minLength": 1 },
+    "entry_count": { "type": "integer", "minimum": 1 },
+    "last_entry_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "key_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "signature_algorithm": { "const": "ed25519" },
+    "signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" }
+  }
+}

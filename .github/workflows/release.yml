@@ -44,7 +44,7 @@ jobs:
           rustup toolchain install 1.96.0 --profile minimal
           rustup override set 1.96.0
           .\scripts\package-release.ps1 -Target windows-x86_64 -Version ('${{ github.ref_name }}' -replace '^v', '') -Commit '${{ github.sha }}'
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: zero-review-windows-x86_64
           path: |
@@ -81,7 +81,7 @@ jobs:
           (cd dist && sha256sum zero-review-linux-x86_64.manifest.json > zero-review-linux-x86_64.manifest.json.sha256)
           tar -C dist -czf dist/zero-review-linux-x86_64.tar.gz zero-review-linux-x86_64-bundle
           (cd dist && sha256sum zero-review-linux-x86_64.tar.gz > zero-review-linux-x86_64.tar.gz.sha256)
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: zero-review-linux-x86_64
           path: |
@@ -107,7 +107,7 @@ jobs:
           mkdir -p dist
           cp zero-review.cdx.json dist/zero-review.cdx.json
           (cd dist && sha256sum zero-review.cdx.json > zero-review.cdx.json.sha256)
-      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: zero-review-sbom
           path: dist/*

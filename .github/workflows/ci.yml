@@ -2,6 +2,7 @@ name: zero-review-ci
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -20,11 +21,7 @@ jobs:
         run: |
           rustup toolchain install '${{ matrix.rust }}' --profile minimal --component rustfmt,clippy
           rustup override set '${{ matrix.rust }}'
-          if ('${{ matrix.os }}' -eq 'windows-latest' -and '${{ matrix.rust }}' -eq '1.96.0') {
-            .\scripts\ci.ps1
-          } else {
-            .\scripts\ci.ps1 -SkipApexContract
-          }
+          .\scripts\ci.ps1 -SkipApexContract
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:

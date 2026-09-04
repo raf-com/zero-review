@@ -2,9 +2,9 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use std::{fs, path::PathBuf};
 use zero_review::{
-    EvidenceStatus, Receipt, ReviewInput, adapter, apex_event_from_receipt, append_receipt,
-    evaluate, inventory_repository, review_needs, review_needs_diagram, scan_security,
-    verify_ledger,
+    Decision, EvidenceStatus, Receipt, ReviewInput, adapter, apex_event_from_receipt,
+    append_receipt, evaluate, inventory_repository, review_needs, review_needs_diagram,
+    scan_security, verify_ledger,
 };
 
 #[derive(Parser)]
@@ -38,6 +38,12 @@ enum Commands {
         out: PathBuf,
         #[arg(long)]
         diagram: PathBuf,
+    },
+    Route {
+        #[arg(long, required = true)]
+        path: Vec<String>,
+        #[arg(long)]
+        out: Option<PathBuf>,
     },
     Diagram {
         #[arg(long)]
@@ -84,6 +90,8 @@ enum Commands {
         subject: String,
         #[arg(long)]
         evidence: Vec<String>,
+        #[arg(long, default_value = "not_proven")]
+        status: String,
     },
     LedgerVerify {
         #[arg(long)]
@@ -115,7 +123,13 @@ async fn main() -> Result<()> {
                     parsed.schema_version
                 );
             }
-            emit(&evaluate(&parsed), out)
+            let decision = evaluate(&parsed);
+            emit(&decision, out)?;
+            match decision.decision {
+                Decision::Pass => Ok(()),
+                Decision::NeedsReview => anyhow::bail!("review requires additional evidence"),
+                Decision::Block => anyhow::bail!("review is blocked"),
+            }
         }
         Commands::Ecosystem {
             config,
@@ -126,6 +140,7 @@ async fn main() -> Result<()> {
             fs::write(&diagram, zero_review::render_ecosystem_diagram(&inventory))?;
             emit(&inventory, Some(out))
         }
+        Commands::Route { path, out } => emit(&zero_review::route_changed_paths(path), out),
         Commands::Diagram { inventory, out } => {
             let inv: zero_review::Inventory = serde_json::from_slice(&fs::read(&inventory)?)?;
             let mut graph = String::from(
@@ -181,12 +196,13 @@ async fn main() -> Result<()> {
             operation,
             subject,
             evidence,
+            status,
         } => emit(
             &append_receipt(
                 &ledger,
                 &operation,
                 &subject,
-                EvidenceStatus::Verified,
+                parse_status(&status)?,
                 evidence,
             )?,
             None,
@@ -195,5 +211,16 @@ async fn main() -> Result<()> {
             &serde_json::json!({"entries":verify_ledger(&ledger)?,"chain":"valid"}),
             None,
         ),
+    }
+}
+
+fn parse_status(value: &str) -> Result<EvidenceStatus> {
+    match value {
+        "verified" => Ok(EvidenceStatus::Verified),
+        "partial" => Ok(EvidenceStatus::Partial),
+        "blocked" => Ok(EvidenceStatus::Blocked),
+        "owner_gated" => Ok(EvidenceStatus::OwnerGated),
+        "not_proven" => Ok(EvidenceStatus::NotProven),
+        _ => anyhow::bail!("unsupported evidence status: {value}"),
     }
 }

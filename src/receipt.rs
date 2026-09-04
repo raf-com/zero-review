@@ -9,13 +9,14 @@ use std::{
 };
 
 fn digest(
+    timestamp: &str,
     operation: &str,
     subject: &str,
     status: &EvidenceStatus,
     evidence: &[String],
     previous: &str,
 ) -> String {
-    let payload = serde_json::to_vec(&(operation, subject, status, evidence, previous))
+    let payload = serde_json::to_vec(&(timestamp, operation, subject, status, evidence, previous))
         .expect("serializable receipt fields");
     hex::encode(Sha256::digest(payload))
 }
@@ -38,9 +39,17 @@ pub fn append_receipt(
     } else {
         String::new()
     };
-    let hash = digest(operation, subject, &status, &evidence, &previous_hash);
+    let timestamp = Utc::now().to_rfc3339();
+    let hash = digest(
+        &timestamp,
+        operation,
+        subject,
+        &status,
+        &evidence,
+        &previous_hash,
+    );
     let receipt = Receipt {
-        timestamp: Utc::now().to_rfc3339(),
+        timestamp,
         operation: operation.into(),
         subject: subject.into(),
         status,
@@ -67,6 +76,7 @@ pub fn verify_ledger(path: &Path) -> Result<usize> {
         if receipt.previous_hash != previous
             || receipt.hash
                 != digest(
+                    &receipt.timestamp,
                     &receipt.operation,
                     &receipt.subject,
                     &receipt.status,

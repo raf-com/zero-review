@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.zero/schemas/zero-review/review-packet-v1.schema.json",
+  "title": "Zero Review packet v1",
+  "$defs": {
+    "evidence": {
+      "type": "object",
+      "required": ["kind", "location", "sha256"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1 },
+        "location": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "required": ["schema_version", "context", "reviewer", "disposition", "summary", "evidence", "reviewed_at"],
+  "properties": {
+    "schema_version": { "const": "zero-review.review-packet.v1" },
+    "context": { "$ref": "pr-context-v1.schema.json" },
+    "reviewer": { "type": "string", "minLength": 1 },
+    "disposition": { "enum": ["approve", "request_changes", "abstain"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "evidence": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/evidence" } },
+    "reviewed_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

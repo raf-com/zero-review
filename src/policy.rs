@@ -9,19 +9,20 @@ pub fn evaluate(input: &ReviewInput) -> ReviewDecision {
     let finding_unproven_count = input
         .findings
         .iter()
-        .filter(|f| f.status != EvidenceStatus::Verified)
+        .filter(|f| {
+            f.status != EvidenceStatus::Verified
+                || f.evidence.is_empty()
+                || f.evidence.iter().any(|e| !valid_evidence_digest(e))
+        })
         .count();
     let missing_controls: Vec<String> = input
         .required_controls
         .iter()
         .filter(|control| {
-            !input.findings.iter().any(|finding| {
-                finding.source.eq_ignore_ascii_case(control)
-                    || finding
-                        .source
-                        .to_ascii_lowercase()
-                        .contains(&control.to_ascii_lowercase())
-            })
+            !input
+                .findings
+                .iter()
+                .any(|finding| finding.source.eq_ignore_ascii_case(control))
         })
         .cloned()
         .collect();
@@ -55,6 +56,15 @@ pub fn evaluate(input: &ReviewInput) -> ReviewDecision {
     }
 }
 
+fn valid_evidence_digest(value: &str) -> bool {
+    value.strip_prefix("sha256:").is_some_and(|digest| {
+        digest.len() == 64
+            && digest
+                .bytes()
+                .all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f'))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -71,7 +81,7 @@ mod tests {
                 source: "test".into(),
                 severity,
                 summary: "x".into(),
-                evidence: vec![],
+                evidence: vec![format!("sha256:{}", "a".repeat(64))],
                 status,
             }],
         }

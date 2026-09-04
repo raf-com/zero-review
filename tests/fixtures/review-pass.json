@@ -8,7 +8,7 @@
       "source": "lint",
       "severity": "info",
       "summary": "lint command passed",
-      "evidence": ["fixture"],
+      "evidence": ["sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
       "status": "verified"
     },
     {
@@ -16,7 +16,7 @@
       "source": "static_analysis",
       "severity": "info",
       "summary": "static analysis passed",
-      "evidence": ["fixture"],
+      "evidence": ["sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"],
       "status": "verified"
     },
     {
@@ -24,7 +24,7 @@
       "source": "security",
       "severity": "info",
       "summary": "security scan passed",
-      "evidence": ["fixture"],
+      "evidence": ["sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"],
       "status": "verified"
     },
     {
@@ -32,7 +32,7 @@
       "source": "approval",
       "severity": "info",
       "summary": "approval policy result supplied",
-      "evidence": ["fixture"],
+      "evidence": ["sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"],
       "status": "verified"
     }
   ]

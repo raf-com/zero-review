@@ -5,8 +5,12 @@ schemas remain published for decoding archived evidence, but they cannot represe
 the identity, typed status, release binding, nonce, or signature fields required by
 the current trust contract.
 
-Review-packet producers must emit `zero-review.review-packet.v2`, including one typed
-result for each required control. Override producers must emit
+Review-packet producers must now emit `zero-review.review-packet.v3`, including one
+`zero-review.evidence.v2` result for each required control. Evidence v2 records the exact
+argument-vector command, executable SHA-256 digest, exit code, and start/end timestamps
+alongside the artifact identity and status. These fields remain producer claims until
+verified against a trusted execution receipt and signed packet manifest. V1 and v2 packets remain decodable as archived
+evidence but cannot pass current validation. Override producers continue to emit
 `zero-review.override.v2` and bind the repository, pull-request number, base and head
 SHA, release digest, nonce, signing algorithm, key ID, and signature.
 
@@ -25,3 +29,6 @@ Ledger checkpoint verification uses current key validity. `created_at` is signed
 future-skew checked, but it is not treated as a trusted timestamp. Long-term
 verification after key expiry requires an external timestamp or transparency witness;
 until then, an expired or revoked key fails closed even for an older checkpoint.
+
+No `v0.2.0` release or tag existed when packet v3 was introduced, so this pre-release
+contract correction does not replace a published v0.2 API.

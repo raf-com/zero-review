@@ -382,10 +382,13 @@ async fn main() -> Result<()> {
             maximum_age_seconds,
         } => {
             let bytes = fs::read(input)?;
-            require_v2_schema(
+            require_current_schema(
                 &bytes,
-                "zero-review.review-packet.v2",
-                "zero-review.review-packet.v1",
+                "zero-review.review-packet.v3",
+                &[
+                    "zero-review.review-packet.v1",
+                    "zero-review.review-packet.v2",
+                ],
             )?;
             let packet: ReviewPacket = serde_json::from_slice(&bytes)?;
             let validation = ValidationContext {
@@ -418,7 +421,11 @@ async fn main() -> Result<()> {
             maximum_duration_seconds,
         } => {
             let bytes = fs::read(input)?;
-            require_v2_schema(&bytes, "zero-review.override.v2", "zero-review.override.v1")?;
+            require_current_schema(
+                &bytes,
+                "zero-review.override.v2",
+                &["zero-review.override.v1"],
+            )?;
             let review_override: ReviewOverride = serde_json::from_slice(&bytes)?;
             let validation = ValidationContext {
                 expected_head_sha: &head_sha,
@@ -565,15 +572,15 @@ fn parse_status(value: &str) -> Result<EvidenceStatus> {
     }
 }
 
-fn require_v2_schema(bytes: &[u8], expected: &str, legacy: &str) -> Result<()> {
+fn require_current_schema(bytes: &[u8], expected: &str, legacy: &[&str]) -> Result<()> {
     let value: serde_json::Value = serde_json::from_slice(bytes)?;
     let actual = value
         .get("schema_version")
         .and_then(serde_json::Value::as_str)
         .context("schema_version is required")?;
-    if actual == legacy {
+    if legacy.contains(&actual) {
         anyhow::bail!(
-            "{legacy} is recognized but cannot prove the v0.2 trust requirements; migrate to {expected}"
+            "{actual} is recognized for archived decoding but lacks current execution provenance; migrate to {expected}"
         );
     }
     if actual != expected {

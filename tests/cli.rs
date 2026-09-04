@@ -51,12 +51,37 @@ fn ledger_cli_stores_and_strictly_verifies_evidence() {
 }
 
 #[test]
-fn legacy_packet_gets_targeted_migration_error() {
+fn legacy_packets_get_targeted_migration_error() {
     let directory = tempfile::tempdir().unwrap();
     let packet = directory.path().join("packet.json");
     fs::write(
         &packet,
         r#"{"schema_version":"zero-review.review-packet.v1"}"#,
+    )
+    .unwrap();
+    Command::cargo_bin("zero-review")
+        .unwrap()
+        .args(["validate-review-packet", "--input"])
+        .arg(&packet)
+        .args([
+            "--repository",
+            "owner/repo",
+            "--pull-request-number",
+            "1",
+            "--base-sha",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "--head-sha",
+            "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        ])
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "migrate to zero-review.review-packet.v3",
+        ));
+
+    fs::write(
+        &packet,
+        r#"{"schema_version":"zero-review.review-packet.v2"}"#,
     )
     .unwrap();
     Command::cargo_bin("zero-review")
@@ -76,7 +101,7 @@ fn legacy_packet_gets_targeted_migration_error() {
         .assert()
         .failure()
         .stderr(predicate::str::contains(
-            "migrate to zero-review.review-packet.v2",
+            "zero-review.review-packet.v2 is recognized for archived decoding",
         ));
 }
 

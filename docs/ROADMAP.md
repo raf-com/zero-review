@@ -13,7 +13,7 @@ Deliverables:
 - Record repository existence, Git identity, Rust workspace presence, and explicit evidence boundaries.
 - Add drift tests for missing, renamed, duplicated, or newly relevant roots.
 
-Exit: inventory generation and graph integrity tests pass on a clean checkout. Current state: partial; inventory exists, but full root-drift coverage and a HEAD-fresh snapshot gate remain open. All roots remain `source_only` for capability claims.
+Exit: inventory generation and graph integrity tests pass on a clean checkout. Current state: local implementation verified for bounded discovery plus missing, renamed, duplicated, newly relevant, and HEAD-drift detection. A hosted freshness gate and independently maintained canonical registry are still open. All roots remain `source_only` for capability claims.
 
 ## Stage 1: Canonical contracts
 
@@ -27,7 +27,7 @@ Deliverables:
 
 Exit: contract tests reject stale SHAs, unknown schema versions, unsigned privileged actions, missing evidence, path traversal, and oversized adapter output.
 
-Current state: partial. Applicability and decision schemas, CLI packet validation, signed/replay-safe overrides, evidence-content verification at policy ingestion, and compatibility fixtures remain open.
+Current state: local implementation verified for versioned applicability and decision schemas, v1/v2 archival decoding, v3 packet validation, domain-separated signed/replay-safe overrides, syntactic evidence metadata validation, and legacy Apex compatibility fixtures. Verification of execution claims against trusted content-addressed receipts and remotely reproducible Apex fixtures remain open.
 
 ## Stage 2: Applicability and orchestration
 
@@ -43,7 +43,7 @@ Deliverables:
 
 Exit: deterministic matrix tests cover application, infrastructure, dependency, migration, security, UI, documentation-only, and mixed changes.
 
-Current state: partial. Deterministic path routing exists; cancellation, registry migration, and specialist execution remain open.
+Current state: local implementation verified for deterministic routing, exact-argument registry execution, digest-pinned private execution copies, output bounds, timeouts, and process-tree termination. Head-change cancellation, enrollment of independently released specialist binaries, and typed specialist result ingestion remain open.
 
 ## Stage 3: Evidence and policy engine
 
@@ -59,6 +59,8 @@ Deliverables:
 
 Exit: mutation and fault-injection tests demonstrate fail-closed behavior across evidence corruption, adapter failure, timeout, and policy disagreement.
 
+Current state: local tests cover evidence corruption, path escape, stale review, override replay, timeout, and ledger tampering. A packet assembler, signed packet manifest, specialist normalization, external checkpoint witness, and broader mutation testing remain open.
+
 ## Stage 4: GitHub enforcement
 
 Deliverables:
@@ -72,6 +74,8 @@ Deliverables:
 - Prove hosted artifact upload and required-check readback on the intended repository.
 
 Exit: a hosted PR run on the intended repository and workflow revision produces a valid packet; branch-protection readback proves merge is blocked when the check or human approval is absent. Owner-gated until release and repository settings are authorized.
+
+Current state: the package repository has four successful hosted OS/toolchain checks and protection readback requiring them plus independent approval. Release publication and consumer enforcement remain blocked on an eligible non-author reviewer and the first protected release.
 
 ## Stage 5: Apex socialization
 
@@ -98,6 +102,8 @@ Deliverables:
 - Provide operator runbooks for stuck reviews, compromised keys, unavailable adapters, GitHub outages, and Apex outages.
 
 Exit: bounded load, recovery, tamper, and dependency-compromise exercises produce current receipts; operational owners accept the runbooks.
+
+Current state: pinned release actions, immutable packaging, checksums, build provenance, SBOM generation, dependency policy checks, a 90-day CI artifact policy, and operator policy are present in source. A released artifact, attestation verification receipt, external witness, recovery rehearsal, load/backpressure evidence, and reproducibility comparison remain open.
 
 ## Stage 7: Organization-wide adoption
 

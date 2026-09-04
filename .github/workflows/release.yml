@@ -12,13 +12,16 @@ jobs:
   verify:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
       - shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git fetch --no-tags origin main
+          git merge-base --is-ancestor '${{ github.sha }}' 'origin/main'
+          if ($LASTEXITCODE -ne 0) { throw 'release commit is not reachable from protected main' }
           if ((git cat-file -t '${{ github.ref_name }}') -ne 'tag') { throw 'release requires an annotated tag' }
           gh release view '${{ github.ref_name }}' 2>$null
           if ($LASTEXITCODE -eq 0) { throw 'release already exists; immutable release will not be replaced' }
@@ -27,13 +30,13 @@ jobs:
           if ($tagVersion -ne $packageVersion) { throw "tag version $tagVersion does not match Cargo.toml $packageVersion" }
           rustup toolchain install 1.96.0 --profile minimal --component rustfmt,clippy
           rustup override set 1.96.0
-          .\scripts\ci.ps1
+          .\scripts\ci.ps1 -SkipApexContract
 
   windows:
     needs: verify
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
       - shell: powershell
@@ -41,18 +44,19 @@ jobs:
           rustup toolchain install 1.96.0 --profile minimal
           rustup override set 1.96.0
           .\scripts\package-release.ps1 -Target windows-x86_64 -Version ('${{ github.ref_name }}' -replace '^v', '') -Commit '${{ github.sha }}'
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: zero-review-windows-x86_64
           path: |
             dist/*
           if-no-files-found: error
+          retention-days: 90
 
   linux:
     needs: verify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
       - shell: bash
@@ -77,7 +81,7 @@ jobs:
           (cd dist && sha256sum zero-review-linux-x86_64.manifest.json > zero-review-linux-x86_64.manifest.json.sha256)
           tar -C dist -czf dist/zero-review-linux-x86_64.tar.gz zero-review-linux-x86_64-bundle
           (cd dist && sha256sum zero-review-linux-x86_64.tar.gz > zero-review-linux-x86_64.tar.gz.sha256)
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: zero-review-linux-x86_64
           path: |
@@ -88,12 +92,13 @@ jobs:
             dist/zero-review-linux-x86_64.manifest.json
             dist/zero-review-linux-x86_64.manifest.json.sha256
           if-no-files-found: error
+          retention-days: 90
 
   sbom:
     needs: verify
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - shell: bash
         run: |
           set -euo pipefail
@@ -102,25 +107,27 @@ jobs:
           mkdir -p dist
           cp zero-review.cdx.json dist/zero-review.cdx.json
           (cd dist && sha256sum zero-review.cdx.json > zero-review.cdx.json.sha256)
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: zero-review-sbom
           path: dist/*
           if-no-files-found: error
+          retention-days: 90
 
   publish:
     needs: [windows, linux, sbom]
     runs-on: ubuntu-latest
+    environment: release
     permissions:
       contents: write
       id-token: write
       attestations: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           path: dist
           merge-multiple: true
-      - uses: actions/attest-build-provenance@96b4a1ef7235a096b17240c259729fdd70c83d45 # v2
+      - uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
         with:
           subject-path: dist/*
       - shell: bash

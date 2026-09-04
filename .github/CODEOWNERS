@@ -1,0 +1,9 @@
+# Interim ownership. Required CODEOWNER review remains disabled until a second
+# qualified maintainer is added, so this file cannot create a self-review deadlock.
+* @raf-andrew
+/src/contracts.rs @raf-andrew
+/src/signature.rs @raf-andrew
+/src/receipt.rs @raf-andrew
+/schemas/ @raf-andrew
+/.github/workflows/ @raf-andrew
+/contract-tests/ @raf-andrew

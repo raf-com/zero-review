@@ -14,6 +14,8 @@ pub const REVIEW_PACKET_SCHEMA_V1: &str = "zero-review.review-packet.v1";
 pub const OVERRIDE_SCHEMA_V1: &str = "zero-review.override.v1";
 pub const REVIEW_PACKET_SCHEMA_V2: &str = "zero-review.review-packet.v2";
 pub const OVERRIDE_SCHEMA_V2: &str = "zero-review.override.v2";
+pub const REVIEW_PACKET_SCHEMA_V3: &str = "zero-review.review-packet.v3";
+pub const REVIEW_EVIDENCE_SCHEMA_V2: &str = "zero-review.evidence.v2";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -50,6 +52,31 @@ pub struct LegacyReviewOverrideV1 {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
+pub struct LegacyReviewEvidenceV2 {
+    pub schema_version: String,
+    pub control_id: String,
+    pub kind: String,
+    pub status: ReviewEvidenceStatus,
+    pub location: String,
+    pub sha256: String,
+    pub byte_length: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct LegacyReviewPacketV2 {
+    pub schema_version: String,
+    pub context: PullRequestContext,
+    pub reviewer: String,
+    pub disposition: ReviewDisposition,
+    pub summary: String,
+    pub required_controls: Vec<String>,
+    pub evidence: Vec<LegacyReviewEvidenceV2>,
+    pub reviewed_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct PullRequestContext {
     pub schema_version: String,
     pub repository: String,
@@ -69,6 +96,11 @@ pub struct ReviewEvidence {
     pub location: String,
     pub sha256: String,
     pub byte_length: u64,
+    pub command: Vec<String>,
+    pub executable_sha256: String,
+    pub exit_code: i32,
+    pub started_at: DateTime<Utc>,
+    pub completed_at: DateTime<Utc>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -110,7 +142,7 @@ pub struct ReviewOverride {
     pub requested_by: String,
     pub approved_by: String,
     pub reason: String,
-    pub evidence: Vec<ReviewEvidence>,
+    pub evidence: Vec<LegacyReviewEvidenceV2>,
     pub issued_at: DateTime<Utc>,
     pub expires_at: DateTime<Utc>,
     pub signer_key_id: String,
@@ -294,7 +326,7 @@ impl ReviewPacket {
         version(
             "review packet",
             &self.schema_version,
-            REVIEW_PACKET_SCHEMA_V2,
+            REVIEW_PACKET_SCHEMA_V3,
         )?;
         self.context.validate(v)?;
         text("reviewer", &self.reviewer)?;
@@ -306,7 +338,6 @@ impl ReviewPacket {
         {
             return Err(ContractError::SelfApproval);
         }
-        validate_evidence(&self.evidence)?;
         let age = v.now.signed_duration_since(self.reviewed_at);
         if self.reviewed_at < self.context.captured_at
             || age < Duration::zero()
@@ -314,6 +345,12 @@ impl ReviewPacket {
         {
             return Err(ContractError::StaleReview);
         }
+        validate_evidence(
+            &self.evidence,
+            self.context.captured_at,
+            self.reviewed_at,
+            v.maximum_review_age,
+        )?;
         let unique: HashSet<_> = self.required_controls.iter().collect();
         if self.required_controls.is_empty()
             || unique.len() != self.required_controls.len()
@@ -420,7 +457,7 @@ impl ReviewOverride {
         {
             return Err(ContractError::SelfApproval);
         }
-        validate_evidence(&self.evidence)?;
+        validate_legacy_v2_evidence(&self.evidence)?;
         if self.expires_at <= self.issued_at {
             return Err(ContractError::InvalidOverrideWindow);
         }
@@ -469,7 +506,7 @@ impl ReviewOverride {
             requested_by: &'a str,
             approved_by: &'a str,
             reason: &'a str,
-            evidence: &'a [ReviewEvidence],
+            evidence: &'a [LegacyReviewEvidenceV2],
             issued_at: DateTime<Utc>,
             expires_at: DateTime<Utc>,
             signer_key_id: &'a str,
@@ -551,7 +588,39 @@ fn digest(field: &'static str, value: &str) -> Result<(), ContractError> {
     }
     Ok(())
 }
-fn validate_evidence(items: &[ReviewEvidence]) -> Result<(), ContractError> {
+fn validate_evidence(
+    items: &[ReviewEvidence],
+    context_captured_at: DateTime<Utc>,
+    reviewed_at: DateTime<Utc>,
+    maximum_duration: Duration,
+) -> Result<(), ContractError> {
+    if items.is_empty()
+        || items.iter().any(|e| {
+            e.schema_version != REVIEW_EVIDENCE_SCHEMA_V2
+                || e.control_id.trim().is_empty()
+                || e.kind.trim().is_empty()
+                || e.location.trim().is_empty()
+                || e.sha256.len() != 64
+                || !e
+                    .sha256
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || matches!(b, b'a'..=b'f'))
+                || e.command.is_empty()
+                || e.command.iter().any(|part| part.trim().is_empty())
+                || digest("executable_sha256", &e.executable_sha256).is_err()
+                || e.completed_at < e.started_at
+                || e.started_at < context_captured_at
+                || e.completed_at > reviewed_at
+                || e.completed_at - e.started_at > maximum_duration
+                || e.status == ReviewEvidenceStatus::Verified && e.exit_code != 0
+        })
+    {
+        return Err(ContractError::MissingEvidence);
+    }
+    Ok(())
+}
+
+fn validate_legacy_v2_evidence(items: &[LegacyReviewEvidenceV2]) -> Result<(), ContractError> {
     if items.is_empty()
         || items.iter().any(|e| {
             e.schema_version != "zero-review.evidence.v1"
@@ -589,13 +658,18 @@ mod tests {
     }
     fn evidence() -> Vec<ReviewEvidence> {
         vec![ReviewEvidence {
-            schema_version: "zero-review.evidence.v1".into(),
+            schema_version: REVIEW_EVIDENCE_SCHEMA_V2.into(),
             control_id: "correctness-tests".into(),
             kind: "verified".into(),
             status: ReviewEvidenceStatus::Verified,
             location: "test.json".into(),
             sha256: "a".repeat(64),
             byte_length: 6,
+            command: vec!["cargo".into(), "test".into(), "--locked".into()],
+            executable_sha256: format!("sha256:{}", "b".repeat(64)),
+            exit_code: 0,
+            started_at: now() - Duration::minutes(2),
+            completed_at: now() - Duration::minutes(1),
         }]
     }
     fn context() -> PullRequestContext {
@@ -611,7 +685,7 @@ mod tests {
     }
     fn packet() -> ReviewPacket {
         ReviewPacket {
-            schema_version: REVIEW_PACKET_SCHEMA_V2.into(),
+            schema_version: REVIEW_PACKET_SCHEMA_V3.into(),
             context: context(),
             reviewer: "reviewer".into(),
             disposition: ReviewDisposition::Approve,
@@ -698,7 +772,15 @@ mod tests {
             requested_by: "author".into(),
             approved_by: "owner".into(),
             reason: "emergency".into(),
-            evidence: evidence(),
+            evidence: vec![LegacyReviewEvidenceV2 {
+                schema_version: "zero-review.evidence.v1".into(),
+                control_id: "correctness-tests".into(),
+                kind: "verified".into(),
+                status: ReviewEvidenceStatus::Verified,
+                location: "test.json".into(),
+                sha256: "a".repeat(64),
+                byte_length: 6,
+            }],
             issued_at: now(),
             expires_at: now() + Duration::hours(1),
             signer_key_id: "key-1".into(),
@@ -795,7 +877,7 @@ mod tests {
     }
 
     #[test]
-    fn v2_contracts_reject_unknown_fields() {
+    fn current_contracts_reject_unknown_fields() {
         let mut value = serde_json::to_value(packet()).unwrap();
         value["unexpected"] = serde_json::json!(true);
         assert!(serde_json::from_value::<ReviewPacket>(value).is_err());
@@ -807,5 +889,72 @@ mod tests {
         let mut evidence = serde_json::to_value(packet()).unwrap();
         evidence["evidence"][0]["unexpected"] = serde_json::json!(true);
         assert!(serde_json::from_value::<ReviewPacket>(evidence).is_err());
+    }
+
+    #[test]
+    fn evidence_rejects_missing_or_invalid_execution_provenance() {
+        let mut p = packet();
+        p.evidence[0].command.clear();
+        assert_eq!(
+            p.validate(&validation()),
+            Err(ContractError::MissingEvidence)
+        );
+
+        let mut p = packet();
+        p.evidence[0].executable_sha256 = "sha256:bad".into();
+        assert_eq!(
+            p.validate(&validation()),
+            Err(ContractError::MissingEvidence)
+        );
+
+        let mut p = packet();
+        p.evidence[0].completed_at = p.evidence[0].started_at - Duration::seconds(1);
+        assert_eq!(
+            p.validate(&validation()),
+            Err(ContractError::MissingEvidence)
+        );
+
+        let mut p = packet();
+        p.evidence[0].exit_code = 1;
+        assert_eq!(
+            p.validate(&validation()),
+            Err(ContractError::MissingEvidence)
+        );
+
+        let mut p = packet();
+        p.evidence[0].completed_at = p.reviewed_at + Duration::seconds(1);
+        assert_eq!(
+            p.validate(&validation()),
+            Err(ContractError::MissingEvidence)
+        );
+
+        let mut p = packet();
+        p.evidence[0].started_at = p.context.captured_at - Duration::seconds(1);
+        assert_eq!(
+            p.validate(&validation()),
+            Err(ContractError::MissingEvidence)
+        );
+    }
+
+    #[test]
+    fn legacy_v2_packet_shape_remains_deserializable() {
+        let mut value = serde_json::to_value(packet()).unwrap();
+        value["schema_version"] = serde_json::json!(REVIEW_PACKET_SCHEMA_V2);
+        let evidence = value["evidence"][0].as_object_mut().unwrap();
+        evidence.insert(
+            "schema_version".into(),
+            serde_json::json!("zero-review.evidence.v1"),
+        );
+        for field in [
+            "command",
+            "executable_sha256",
+            "exit_code",
+            "started_at",
+            "completed_at",
+        ] {
+            evidence.remove(field);
+        }
+        let decoded: LegacyReviewPacketV2 = serde_json::from_value(value).unwrap();
+        assert_eq!(decoded.schema_version, REVIEW_PACKET_SCHEMA_V2);
     }
 }

@@ -19,9 +19,10 @@ pub use apex::{
 pub use applicability::{ApplicabilityRoute, route_changed_paths};
 pub use contracts::{
     ContractError, ExpectedOverride, ExpectedPullRequest, FileOverrideNonceStore,
-    LegacyReviewEvidenceV1, LegacyReviewOverrideV1, LegacyReviewPacketV1, NonceConsume,
-    NonceStoreError, OVERRIDE_SCHEMA_V2, OverrideNonceStore, OverrideSignatureVerifier,
-    PullRequestContext, REVIEW_PACKET_SCHEMA_V2, ReviewDisposition, ReviewEvidence,
+    LegacyReviewEvidenceV1, LegacyReviewEvidenceV2, LegacyReviewOverrideV1, LegacyReviewPacketV1,
+    LegacyReviewPacketV2, NonceConsume, NonceStoreError, OVERRIDE_SCHEMA_V2, OverrideNonceStore,
+    OverrideSignatureVerifier, PullRequestContext, REVIEW_EVIDENCE_SCHEMA_V2,
+    REVIEW_PACKET_SCHEMA_V2, REVIEW_PACKET_SCHEMA_V3, ReviewDisposition, ReviewEvidence,
     ReviewEvidenceStatus, ReviewOverride, ReviewPacket, ValidationContext,
 };
 pub use ecosystem::{

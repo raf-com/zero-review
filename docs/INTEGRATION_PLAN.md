@@ -7,14 +7,14 @@
 | Repository controls | `webapp_core/.github/workflows`, `scripts/`, config | inventory and normalize | discovery is not execution |
 | PR acquisition | `zero-pr-review`, `zero-github` | invoke explicit read-only adapters | GitHub writes remain disallowed |
 | Deterministic checks | `zero-lint`, repository-native lint/test commands | collect findings | a command receipt is required |
-| Decision | `zero-codereview` | deterministic block/review/pass policy | pass requires verified inputs |
+| Decision | `zero-review` | deterministic block/review/pass policy | pass requires verified inputs |
 | Proof | `zero-proof`, code-sentinel oracle | verify exact claims | proof scope must match claim |
 | Trace and dispatch | `apex-trace-rs`, Apex `:8009` | health/preflight and future trace export | dispatch requires non-quiesced workers |
 | Evidence | JSON artifacts and hash-chained ledger | durable receipts | ledger integrity is not product correctness |
 
 ## Needs
 
-1. Add repository-local automation that invokes `zero-codereview inventory` and `evaluate`.
+1. Add repository-local automation that invokes `zero-review inventory`, `needs`, and `evaluate`.
 2. Define a versioned normalized judgment schema for human or agent findings.
 3. Expand repository-native command adapters beyond the current bounded executable adapter.
 4. Authenticate and sign exported Apex events only after a producer key and sink authority are provided.

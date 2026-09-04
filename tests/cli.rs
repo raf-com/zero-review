@@ -3,7 +3,7 @@ use predicates::prelude::*;
 
 #[test]
 fn help_names_control_plane() {
-    Command::cargo_bin("zero-codereview")
+    Command::cargo_bin("zero-review")
         .unwrap()
         .arg("--help")
         .assert()

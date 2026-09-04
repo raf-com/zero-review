@@ -24,26 +24,39 @@ pub fn inventory_repository(root: &Path) -> Result<Inventory> {
         .canonicalize()
         .with_context(|| format!("repository does not exist: {}", root.display()))?;
     let mut controls = Vec::new();
-    for entry in WalkDir::new(&canonical)
-        .max_depth(6)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|e| {
-            !matches!(
-                e.file_name().to_str(),
-                Some(
-                    ".git"
-                        | ".claude"
-                        | "node_modules"
-                        | "vendor"
-                        | "target"
-                        | "storage"
-                        | "_graveyard_2026-04-19"
-                )
-            )
+    let review_roots = [".github", "scripts", "config", "orchestration"];
+    for entry in review_roots
+        .iter()
+        .map(|name| canonical.join(name))
+        .filter(|path| path.exists())
+        .flat_map(|path| {
+            WalkDir::new(path)
+                .max_depth(6)
+                .follow_links(false)
+                .into_iter()
+                .filter_entry(|e| {
+                    !matches!(
+                        e.file_name().to_str(),
+                        Some(
+                            ".git"
+                                | ".claude"
+                                | ".work"
+                                | ".cache"
+                                | "node_modules"
+                                | "vendor"
+                                | "target"
+                                | "storage"
+                                | "coverage"
+                                | "artifacts"
+                                | "dist"
+                                | "build"
+                                | "_graveyard_2026-04-19"
+                        )
+                    )
+                })
+                .filter_map(Result::ok)
+                .filter(|e| e.file_type().is_file())
         })
-        .filter_map(Result::ok)
-        .filter(|e| e.file_type().is_file())
     {
         let relative = entry
             .path()
@@ -95,9 +108,9 @@ pub fn inventory_repository(root: &Path) -> Result<Inventory> {
     }
     if !controls
         .iter()
-        .any(|control| control.path.contains("zero-codereview"))
+        .any(|control| control.path.contains("zero-review"))
     {
-        needs.push("zero-codereview is not yet referenced by repository-local automation".into());
+        needs.push("zero-review is not yet referenced by repository-local automation".into());
     }
     Ok(Inventory {
         repository: canonical.display().to_string(),

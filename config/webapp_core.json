@@ -13,6 +13,17 @@
   "policy": {
     "block_on_blocking_finding": true,
     "require_verified_evidence_for_pass": true,
-    "allow_network_mutation": false
+    "allow_network_mutation": false,
+    "required_reviews": [
+      "change-scope",
+      "tests",
+      "security",
+      "dependencies",
+      "data-migrations",
+      "operations",
+      "observability",
+      "documentation",
+      "human-approval"
+    ]
   }
 }

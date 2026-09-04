@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.zero/schemas/zero-codereview/review-input-v1.schema.json",
-  "title": "zero-codereview normalized findings",
+  "$id": "https://local.zero/schemas/zero-review/review-input-v1.schema.json",
+  "title": "zero-review normalized findings",
   "type": "object",
   "required": ["schema_version", "repository", "findings"],
   "properties": {
-    "schema_version": { "const": "zero-codereview.findings.v1" },
+    "schema_version": { "const": "zero-review.findings.v1" },
     "repository": { "type": "string", "minLength": 1 },
     "required_controls": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
     "findings": {

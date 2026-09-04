@@ -63,7 +63,7 @@ mod tests {
 
     fn input(severity: Severity, status: EvidenceStatus) -> ReviewInput {
         ReviewInput {
-            schema_version: "zero-codereview.findings.v1".into(),
+            schema_version: "zero-review.findings.v1".into(),
             repository: PathBuf::from("repo"),
             required_controls: vec![],
             findings: vec![Finding {

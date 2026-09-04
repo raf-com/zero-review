@@ -1,5 +1,5 @@
 {
-  "schema_version": "zero-codereview.findings.v1",
+  "schema_version": "zero-review.findings.v1",
   "repository": "C:\\webapp_core",
   "required_controls": ["lint", "static_analysis", "security", "approval"],
   "findings": [

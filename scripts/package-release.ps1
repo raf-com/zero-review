@@ -6,7 +6,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $packageRoot = Split-Path -Parent $PSScriptRoot
 $artifactRoot = Join-Path $packageRoot 'artifacts\release'
-$bundleRoot = Join-Path $artifactRoot "zero-codereview-$Version-windows-x86_64"
+$bundleRoot = Join-Path $artifactRoot "zero-review-$Version-windows-x86_64"
 $archive = "$bundleRoot.zip"
 
 Push-Location $packageRoot
@@ -15,17 +15,17 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "release build failed" }
 
     New-Item -ItemType Directory -Force -Path $bundleRoot | Out-Null
-    Copy-Item -LiteralPath (Join-Path $packageRoot 'target\release\zero-codereview.exe') -Destination $bundleRoot -Force
+    Copy-Item -LiteralPath (Join-Path $packageRoot 'target\release\zero-review.exe') -Destination $bundleRoot -Force
     Copy-Item -LiteralPath (Join-Path $packageRoot 'README.md') -Destination $bundleRoot -Force
     Copy-Item -LiteralPath (Join-Path $packageRoot 'schemas\review-input-v1.schema.json') -Destination $bundleRoot -Force
 
-    $binary = Join-Path $bundleRoot 'zero-codereview.exe'
+    $binary = Join-Path $bundleRoot 'zero-review.exe'
     $binaryHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $binary).Hash.ToLowerInvariant()
     $commit = git rev-parse HEAD
     if ($LASTEXITCODE -ne 0) { throw "git revision lookup failed" }
 
     [pscustomobject]@{
-        schema_version = 'zero-codereview.release.v1'
+        schema_version = 'zero-review.release.v1'
         version = $Version
         commit = $commit.Trim()
         target = 'windows-x86_64'

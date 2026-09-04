@@ -4,6 +4,7 @@ pub mod inventory;
 pub mod model;
 pub mod policy;
 pub mod receipt;
+pub mod review_needs;
 pub mod security;
 
 pub use apex::{ApexExpertTraceEvent, apex_event_from_receipt};
@@ -11,4 +12,5 @@ pub use inventory::inventory_repository;
 pub use model::*;
 pub use policy::evaluate;
 pub use receipt::{append_receipt, verify_ledger};
+pub use review_needs::{review_needs, review_needs_diagram};
 pub use security::scan_security;

@@ -1,16 +1,16 @@
 {
-  "event_id": "zero-codereview-50b5b205784db525",
-  "trace_id": "zero-codereview-467acfd92572c879da53affa0235c319387488fa2fd0c7d64d52d2896b0614d4",
+  "event_id": "zero-review-50b5b205784db525",
+  "trace_id": "zero-review-467acfd92572c879da53affa0235c319387488fa2fd0c7d64d52d2896b0614d4",
   "task_id": null,
-  "expert_id": "expert:zero-codereview",
+  "expert_id": "expert:zero-review",
   "release_digest": "sha256:40ae5f5537eb6978acb39c6606a8d6272ea77351b9af1f4a5fa4cd8c9c9fcd0d",
-  "receipt_id": "expert-manifest-zero-codereview-50b5b205784db525",
+  "receipt_id": "expert-manifest-zero-review-50b5b205784db525",
   "receipt_sha256": "sha256:50b5b205784db52538958bc10f24d0655482b0989011c3fa61d54d20370038d5",
   "event_type": "outcome",
   "timestamp_utc": "2026-08-22T17:50:12.507554300+00:00",
   "policy_decision": "allowed",
   "evaluation_status": "pass",
-  "tool_name": "zero-codereview",
+  "tool_name": "zero-review",
   "tool_result_sha256": "sha256:50b5b205784db52538958bc10f24d0655482b0989011c3fa61d54d20370038d5",
   "outcome_status": "succeeded"
 }

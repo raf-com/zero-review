@@ -747,7 +747,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zero-codereview-apex-compat"
+name = "zero-review-apex-compat"
 version = "0.1.0"
 dependencies = [
  "serde_json",

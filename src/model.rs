@@ -42,7 +42,17 @@ pub struct ReviewInput {
 }
 
 fn default_schema_version() -> String {
-    "zero-codereview.findings.v1".into()
+    "zero-review.findings.v1".into()
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ReviewNeed {
+    pub id: String,
+    pub title: String,
+    pub owner: String,
+    pub required_for: Vec<String>,
+    pub evidence: Vec<String>,
+    pub blocking: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

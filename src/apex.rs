@@ -91,7 +91,7 @@ pub fn apex_event_from_receipt(receipt: &Receipt) -> Result<ApexExpertTraceEvent
     {
         bail!("receipt hash must contain 64 lowercase hexadecimal digits");
     }
-    let release = hex::encode(Sha256::digest(b"zero-codereview:0.1.0"));
+    let release = hex::encode(Sha256::digest(b"zero-review:0.1.0"));
     let subject = hex::encode(Sha256::digest(receipt.subject.as_bytes()));
     let (policy_decision, evaluation_status, outcome_status) = match receipt.status {
         EvidenceStatus::Verified => (
@@ -116,18 +116,18 @@ pub fn apex_event_from_receipt(receipt: &Receipt) -> Result<ApexExpertTraceEvent
         ),
     };
     let event = ApexExpertTraceEvent {
-        event_id: format!("zero-codereview-{}", &receipt.hash[..16]),
-        trace_id: format!("zero-codereview-{subject}"),
+        event_id: format!("zero-review-{}", &receipt.hash[..16]),
+        trace_id: format!("zero-review-{subject}"),
         task_id: None,
-        expert_id: "expert:zero-codereview".into(),
+        expert_id: "expert:zero-review".into(),
         release_digest: format!("sha256:{release}"),
-        receipt_id: format!("expert-manifest-zero-codereview-{}", &receipt.hash[..16]),
+        receipt_id: format!("expert-manifest-zero-review-{}", &receipt.hash[..16]),
         receipt_sha256: format!("sha256:{}", receipt.hash),
         event_type: ApexEventType::Outcome,
         timestamp_utc: receipt.timestamp.clone(),
         policy_decision,
         evaluation_status,
-        tool_name: Some("zero-codereview".into()),
+        tool_name: Some("zero-review".into()),
         tool_result_sha256: Some(format!("sha256:{}", receipt.hash)),
         outcome_status: Some(outcome_status),
     };

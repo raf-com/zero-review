@@ -1,14 +1,15 @@
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use std::{fs, path::PathBuf};
-use zero_codereview::{
+use zero_review::{
     EvidenceStatus, Receipt, ReviewInput, adapter, apex_event_from_receipt, append_receipt,
-    evaluate, inventory_repository, scan_security, verify_ledger,
+    evaluate, inventory_repository, review_needs, review_needs_diagram, scan_security,
+    verify_ledger,
 };
 
 #[derive(Parser)]
 #[command(
-    name = "zero-codereview",
+    name = "zero-review",
     about = "Evidence-first code-review control plane"
 )]
 struct Cli {
@@ -35,6 +36,12 @@ enum Commands {
         inventory: PathBuf,
         #[arg(long)]
         out: PathBuf,
+    },
+    Needs {
+        #[arg(long)]
+        out: Option<PathBuf>,
+        #[arg(long)]
+        diagram: Option<PathBuf>,
     },
     Adapter {
         #[arg(long)]
@@ -94,18 +101,18 @@ async fn main() -> Result<()> {
         Commands::Inventory { repo, out } => emit(&inventory_repository(&repo)?, out),
         Commands::Evaluate { input, out } => {
             let parsed: ReviewInput = serde_json::from_slice(&fs::read(&input)?)?;
-            if parsed.schema_version != "zero-codereview.findings.v1" {
+            if parsed.schema_version != "zero-review.findings.v1" {
                 anyhow::bail!(
-                    "unsupported schema_version {}; expected zero-codereview.findings.v1",
+                    "unsupported schema_version {}; expected zero-review.findings.v1",
                     parsed.schema_version
                 );
             }
             emit(&evaluate(&parsed), out)
         }
         Commands::Diagram { inventory, out } => {
-            let inv: zero_codereview::Inventory = serde_json::from_slice(&fs::read(&inventory)?)?;
+            let inv: zero_review::Inventory = serde_json::from_slice(&fs::read(&inventory)?)?;
             let mut graph = String::from(
-                "flowchart LR\n  PR[Pull Request] --> INV[Control inventory]\n  INV --> NATIVE[zero-pr-review / zero-lint]\n  NATIVE --> JUDGE[Normalized findings]\n  JUDGE --> POLICY[zero-codereview policy]\n  POLICY --> PROOF[zero-proof / oracle]\n  PROOF --> APEX[Apex trace and dispatch]\n  APEX --> RECEIPT[Hash-chained receipt]\n",
+                "flowchart LR\n  PR[Pull Request] --> INV[Control inventory]\n  INV --> NATIVE[zero-pr-review / zero-lint]\n  NATIVE --> JUDGE[Normalized findings]\n  JUDGE --> POLICY[zero-review policy]\n  POLICY --> PROOF[zero-proof / oracle]\n  PROOF --> APEX[Apex advisory trace]\n  POLICY --> RECEIPT[Hash-chained receipt]\n",
             );
             for (i, control) in inv.controls.iter().enumerate() {
                 graph.push_str(&format!(
@@ -116,6 +123,13 @@ async fn main() -> Result<()> {
                 ));
             }
             fs::write(out, graph)?;
+            Ok(())
+        }
+        Commands::Needs { out, diagram } => {
+            emit(&review_needs(), out)?;
+            if let Some(path) = diagram {
+                fs::write(path, review_needs_diagram())?;
+            }
             Ok(())
         }
         Commands::Adapter {

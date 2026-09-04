@@ -1744,7 +1744,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zero-codereview"
+name = "zero-review"
 version = "0.1.0"
 dependencies = [
  "anyhow",

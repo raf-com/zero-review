@@ -1,4 +1,4 @@
-name: zero-codereview-ci
+name: zero-review-ci
 
 on:
   push:

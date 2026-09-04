@@ -25,7 +25,7 @@ pub fn scan_security(contents: &str) -> Vec<Finding> {
             if normalized.contains(&needle.replace(' ', "")) {
                 findings.push(Finding {
                     id: format!("security-{id}-{}", line_index + 1),
-                    source: "zero-codereview.security.v1".into(),
+                    source: "zero-review.security.v1".into(),
                     severity: severity.clone(),
                     summary: format!(
                         "security-sensitive pattern {id} at input line {}",

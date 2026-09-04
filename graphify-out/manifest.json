@@ -1,0 +1,194 @@
+{
+  "Cargo.toml": {
+    "mtime": 1788499601.574812,
+    "seen": 1788501225.1323323,
+    "ast_hash": "ef0d4a190ee9359c1c7686e316e2b989",
+    "semantic_hash": "ef0d4a190ee9359c1c7686e316e2b989"
+  },
+  "config/ecosystem-roots.json": {
+    "mtime": 1788500795.142221,
+    "seen": 1788501225.1323323,
+    "ast_hash": "a451b5949a27ff612cfe68bddb9db0a7",
+    "semantic_hash": "a451b5949a27ff612cfe68bddb9db0a7"
+  },
+  "config/webapp_core.json": {
+    "mtime": 1788499601.5866628,
+    "seen": 1788501225.1323323,
+    "ast_hash": "29d5b13b6b5db943fb8a46da6b2b49a8",
+    "semantic_hash": "29d5b13b6b5db943fb8a46da6b2b49a8"
+  },
+  "contract-tests/apex-compat/Cargo.toml": {
+    "mtime": 1788499653.6852608,
+    "seen": 1788501225.1323323,
+    "ast_hash": "25438096e7fc2379244696f79e1e2640",
+    "semantic_hash": "25438096e7fc2379244696f79e1e2640"
+  },
+  "contract-tests/apex-compat/apex-event.fixture.json": {
+    "mtime": 1788499653.686988,
+    "seen": 1788501225.1323323,
+    "ast_hash": "1a7e55ec9fbfc5430de6fc90f4e32277",
+    "semantic_hash": "1a7e55ec9fbfc5430de6fc90f4e32277"
+  },
+  "contract-tests/apex-compat/apex_event.rs": {
+    "mtime": 1788499561.8749633,
+    "seen": 1788501225.1323323,
+    "ast_hash": "736e2cc1909f00679fdcdb3c8db36b7a",
+    "semantic_hash": "736e2cc1909f00679fdcdb3c8db36b7a"
+  },
+  "schemas/review-input-v1.schema.json": {
+    "mtime": 1788499653.681298,
+    "seen": 1788501225.1323323,
+    "ast_hash": "1d04c2f8bd1d9dea0ec96973dd790517",
+    "semantic_hash": "1d04c2f8bd1d9dea0ec96973dd790517"
+  },
+  "scripts/ci.ps1": {
+    "mtime": 1788499561.8822403,
+    "seen": 1788501225.1323323,
+    "ast_hash": "bbcc1215148ca7bfd1f921ef3b0a6226",
+    "semantic_hash": "bbcc1215148ca7bfd1f921ef3b0a6226"
+  },
+  "scripts/install.ps1": {
+    "mtime": 1788499601.5848844,
+    "seen": 1788501225.1323323,
+    "ast_hash": "507b878cbb47e0676c1d7a4a206c4a5b",
+    "semantic_hash": "507b878cbb47e0676c1d7a4a206c4a5b"
+  },
+  "scripts/package-release.ps1": {
+    "mtime": 1788499653.6835735,
+    "seen": 1788501225.1323323,
+    "ast_hash": "a19aa8ded2fe16297648ae5feec89357",
+    "semantic_hash": "a19aa8ded2fe16297648ae5feec89357"
+  },
+  "scripts/supply-chain.ps1": {
+    "mtime": 1788499561.886114,
+    "seen": 1788501225.1323323,
+    "ast_hash": "510ee14528ef5473714ac034df273791",
+    "semantic_hash": "510ee14528ef5473714ac034df273791"
+  },
+  "src/adapter.rs": {
+    "mtime": 1788499561.8877673,
+    "seen": 1788501225.1323323,
+    "ast_hash": "3dfc891b3edf26666da2aa832c9d5800",
+    "semantic_hash": "3dfc891b3edf26666da2aa832c9d5800"
+  },
+  "src/apex.rs": {
+    "mtime": 1788499601.5803783,
+    "seen": 1788501225.1323323,
+    "ast_hash": "f388f2768db9a20c329217319aa2cd90",
+    "semantic_hash": "f388f2768db9a20c329217319aa2cd90"
+  },
+  "src/ecosystem.rs": {
+    "mtime": 1788500802.4810388,
+    "seen": 1788501225.1323323,
+    "ast_hash": "8f62dab093944c517d571694cce3df36",
+    "semantic_hash": "8f62dab093944c517d571694cce3df36"
+  },
+  "src/inventory.rs": {
+    "mtime": 1788500143.8696947,
+    "seen": 1788501225.1323323,
+    "ast_hash": "71348a48aa2f28d7306b7b2ce5f32f92",
+    "semantic_hash": "71348a48aa2f28d7306b7b2ce5f32f92"
+  },
+  "src/lib.rs": {
+    "mtime": 1788500795.1013024,
+    "seen": 1788501225.1323323,
+    "ast_hash": "c55c810631a79c3f6e0d3faca8fbbc87",
+    "semantic_hash": "c55c810631a79c3f6e0d3faca8fbbc87"
+  },
+  "src/main.rs": {
+    "mtime": 1788500802.544354,
+    "seen": 1788501225.1323323,
+    "ast_hash": "95b92ae9c6a38110631c14e77dbb281b",
+    "semantic_hash": "95b92ae9c6a38110631c14e77dbb281b"
+  },
+  "src/model.rs": {
+    "mtime": 1788499601.577618,
+    "seen": 1788501225.1323323,
+    "ast_hash": "2fe33aae9b22e9799875a768000f4dc7",
+    "semantic_hash": "2fe33aae9b22e9799875a768000f4dc7"
+  },
+  "src/policy.rs": {
+    "mtime": 1788499653.6754825,
+    "seen": 1788501225.1323323,
+    "ast_hash": "43544f6e32f6e47d480502e779b1c4f2",
+    "semantic_hash": "43544f6e32f6e47d480502e779b1c4f2"
+  },
+  "src/receipt.rs": {
+    "mtime": 1788499561.8979988,
+    "seen": 1788501225.1323323,
+    "ast_hash": "60d3b70e2f948cf12b33161f065da1f0",
+    "semantic_hash": "60d3b70e2f948cf12b33161f065da1f0"
+  },
+  "src/review_needs.rs": {
+    "mtime": 1788499734.133581,
+    "seen": 1788501225.1323323,
+    "ast_hash": "42240c75b3fa8d4227a987820e61b10b",
+    "semantic_hash": "42240c75b3fa8d4227a987820e61b10b"
+  },
+  "src/security.rs": {
+    "mtime": 1788499653.6772404,
+    "seen": 1788501225.1323323,
+    "ast_hash": "ea7f2fafd910c7e918d79e5de33e6a24",
+    "semantic_hash": "ea7f2fafd910c7e918d79e5de33e6a24"
+  },
+  "tests/cli.rs": {
+    "mtime": 1788499601.582082,
+    "seen": 1788501225.1323323,
+    "ast_hash": "2731b5dfd1913ad131501c3b9949b110",
+    "semantic_hash": "2731b5dfd1913ad131501c3b9949b110"
+  },
+  "tests/fixtures/review-pass.json": {
+    "mtime": 1788499653.6795013,
+    "seen": 1788501225.1323323,
+    "ast_hash": "9581e80a3ab2c811fa4750b7e00ab583",
+    "semantic_hash": "9581e80a3ab2c811fa4750b7e00ab583"
+  },
+  ".github/workflows/ci.yml": {
+    "mtime": 1788499601.5837393,
+    "seen": 1788501225.1323323,
+    "ast_hash": "4fab284b6e3454437e8409cc13321f05",
+    "semantic_hash": "4fab284b6e3454437e8409cc13321f05"
+  },
+  "README.md": {
+    "mtime": 1788500942.32367,
+    "seen": 1788501225.1323323,
+    "ast_hash": "98d74b59ef876f710db5d8149af99cc5",
+    "semantic_hash": "98d74b59ef876f710db5d8149af99cc5"
+  },
+  "docs/ADOPTION.md": {
+    "mtime": 1788499675.5615323,
+    "seen": 1788501225.1323323,
+    "ast_hash": "5389201c5e87564a8ee593cec3716c9d",
+    "semantic_hash": "5389201c5e87564a8ee593cec3716c9d"
+  },
+  "docs/ARCHITECTURE.md": {
+    "mtime": 1788499675.5568695,
+    "seen": 1788501225.1323323,
+    "ast_hash": "95f920c3d7a6507609c64d48bd609e2c",
+    "semantic_hash": "95f920c3d7a6507609c64d48bd609e2c"
+  },
+  "docs/ECOSYSTEM_MAP.md": {
+    "mtime": 1788500942.313691,
+    "seen": 1788501225.1323323,
+    "ast_hash": "31aa6c319c28aaad5aab6808ccec88a2",
+    "semantic_hash": "31aa6c319c28aaad5aab6808ccec88a2"
+  },
+  "docs/INTEGRATION_PLAN.md": {
+    "mtime": 1788500222.2122433,
+    "seen": 1788501225.1323323,
+    "ast_hash": "4db0d37aa59bfdae571697686798fa86",
+    "semantic_hash": "4db0d37aa59bfdae571697686798fa86"
+  },
+  "docs/REVIEW_NEEDS.md": {
+    "mtime": 1788499675.5591683,
+    "seen": 1788501225.1323323,
+    "ast_hash": "c89650144c8167e3f51327495a999c03",
+    "semantic_hash": "c89650144c8167e3f51327495a999c03"
+  },
+  "docs/ROADMAP.md": {
+    "mtime": 1788500942.317018,
+    "seen": 1788501225.1323323,
+    "ast_hash": "073c82ee55d3cc46245e61cdbafadeee",
+    "semantic_hash": "073c82ee55d3cc46245e61cdbafadeee"
+  }
+}

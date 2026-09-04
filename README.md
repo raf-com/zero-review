@@ -8,6 +8,7 @@ It does not merge or approve pull requests, sign Apex events, bypass human revie
 
 ```powershell
 cargo run --locked -- needs --out artifacts\review-needs.json --diagram artifacts\review-needs.mmd
+cargo run --locked -- ecosystem --config config\ecosystem-roots.json --out artifacts\ecosystem-inventory.json --diagram artifacts\ecosystem-topology.mmd
 cargo run --locked -- inventory --repo C:\webapp_core --out artifacts\webapp-core-inventory.json
 cargo run --locked -- diagram --inventory artifacts\webapp-core-inventory.json --out artifacts\infrastructure.mmd
 cargo run --locked -- evaluate --input tests\fixtures\review-pass.json
@@ -23,4 +24,4 @@ cargo run --locked -- ledger-verify --ledger artifacts\receipts.jsonl
 - `owner_gated`: credentials, protected settings, production data, or mutation authority are required.
 - `not_proven`: configuration or prose exists without a current receipt.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/REVIEW_NEEDS.md](docs/REVIEW_NEEDS.md), and [docs/ADOPTION.md](docs/ADOPTION.md).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/ECOSYSTEM_MAP.md](docs/ECOSYSTEM_MAP.md), [docs/REVIEW_NEEDS.md](docs/REVIEW_NEEDS.md), [docs/ROADMAP.md](docs/ROADMAP.md), and [docs/ADOPTION.md](docs/ADOPTION.md).

@@ -1,5 +1,6 @@
 pub mod adapter;
 pub mod apex;
+pub mod ecosystem;
 pub mod inventory;
 pub mod model;
 pub mod policy;
@@ -8,6 +9,7 @@ pub mod review_needs;
 pub mod security;
 
 pub use apex::{ApexExpertTraceEvent, apex_event_from_receipt};
+pub use ecosystem::{EcosystemInventory, inventory_ecosystem, render_ecosystem_diagram};
 pub use inventory::inventory_repository;
 pub use model::*;
 pub use policy::evaluate;

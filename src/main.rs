@@ -31,6 +31,14 @@ enum Commands {
         #[arg(long)]
         out: Option<PathBuf>,
     },
+    Ecosystem {
+        #[arg(long)]
+        config: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+        #[arg(long)]
+        diagram: PathBuf,
+    },
     Diagram {
         #[arg(long)]
         inventory: PathBuf,
@@ -108,6 +116,15 @@ async fn main() -> Result<()> {
                 );
             }
             emit(&evaluate(&parsed), out)
+        }
+        Commands::Ecosystem {
+            config,
+            out,
+            diagram,
+        } => {
+            let inventory = zero_review::inventory_ecosystem(&config)?;
+            fs::write(&diagram, zero_review::render_ecosystem_diagram(&inventory))?;
+            emit(&inventory, Some(out))
         }
         Commands::Diagram { inventory, out } => {
             let inv: zero_review::Inventory = serde_json::from_slice(&fs::read(&inventory)?)?;

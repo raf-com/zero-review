@@ -55,31 +55,31 @@ flowchart TB
     ATEST[apex_tests]
   end
 
-  W --> PR
-  ZBR --> ZREV
-  ZGH --> ZREV
-  ZCOM --> ZREV
-  PR --> ZPR
-  ZPR --> ZREV
-  ZL --> ZREV
-  ZSEC --> ZREV
-  ZRISK --> ZREV
-  ZSPEC --> ZREV
-  ZQUAL --> ZREV
-  ZBENCH --> ZREV
-  ZBROW --> ZREV
-  ZREV --> ZPROOF --> ZART
-  ZREV --> ZMEM
-  ZREV --> ZOTEL --> ZPERF
-  ZREV --> ZCTRL --> ZACT --> ZWF
-  ZWF --> ZDEP --> ZROLL
-  ZREV --> ATR --> AP
-  AP --> ADAG --> AEV
-  AP --> AE
-  AP --> APR
-  ATR --> AMON --> ADASH
-  ASDK --> AP
-  ATEST --> AP
+  W -. candidate .-> PR
+  ZBR -. source-only .-> ZREV
+  ZGH -. source-only .-> ZREV
+  ZCOM -. source-only .-> ZREV
+  PR -. candidate .-> ZPR
+  ZPR -. source-only .-> ZREV
+  ZL -. source-only .-> ZREV
+  ZSEC -. source-only .-> ZREV
+  ZRISK -. source-only .-> ZREV
+  ZSPEC -. source-only .-> ZREV
+  ZQUAL -. source-only .-> ZREV
+  ZBENCH -. source-only .-> ZREV
+  ZBROW -. source-only .-> ZREV
+  ZREV -. candidate .-> ZPROOF -. candidate .-> ZART
+  ZREV -. candidate .-> ZMEM
+  ZREV -. candidate .-> ZOTEL -. candidate .-> ZPERF
+  ZREV -. candidate .-> ZCTRL -. candidate .-> ZACT -. candidate .-> ZWF
+  ZWF -. candidate .-> ZDEP -. candidate .-> ZROLL
+  ZREV -. local unsigned export only .-> ATR -. owner-gated submission .-> AP
+  AP -. source-only .-> ADAG -. source-only .-> AEV
+  AP -. source-only .-> AE
+  AP -. source-only .-> APR
+  ATR -. source-only .-> AMON -. source-only .-> ADASH
+  ASDK -. source-only .-> AP
+  ATEST -. source-only .-> AP
 ```
 
 ## Review-need coverage
@@ -113,7 +113,7 @@ sequenceDiagram
   Review->>Zero: bounded read-only analysis requests
   Zero-->>Review: normalized findings plus evidence
   Review->>Review: deterministic fail-closed decision
-  Review-->>Apex: unsigned advisory trace event
+  Review-->>Apex: local unsigned advisory export; submission not active
   Review-->>Human: review packet and unresolved gates
   Human-->>GitHub: approve or request changes
   Review-->>GitHub: required status result

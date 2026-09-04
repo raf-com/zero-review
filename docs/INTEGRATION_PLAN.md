@@ -24,12 +24,12 @@
 
 ## Integration statuses
 
-- Rust build and local policy tests: verified by a current local command.
+- Rust build and local policy tests: verified by the current combined CI-equivalent command after receipt-lock and adapter hardening.
 - `webapp_core` static inventory and topology generation: partial; discovered controls are not executed by inventory.
-- `zero-pr-review` adapter and GitHub authentication: verified by a current adapter command.
-- Apex health: verified reachable at the health endpoint.
-- Apex dispatch: blocked because the dispatcher reports quiesced and zero dispatchable workers.
+- `zero-pr-review` adapter and GitHub authentication: `not_proven`; each adapter needs migration to the digest-pinned registry and a current authentication receipt.
+- Apex health: blocked by the current failed probe of `127.0.0.1:8009`; re-probe before any availability claim.
+- Apex dispatch: blocked while the configured endpoint is unreachable; worker state is not claimed without a current dispatcher receipt.
 - Apex event shape: verified against the actual trace_store ExpertTraceEvent type by the local compatibility test.
-- Release installer: verified locally; hosted CI execution remains not proven.
-- Local CI-equivalent runner: verified across formatting, strict Clippy, package tests, security fixture, and the Apex compatibility test.
+- Release installer: `not_proven` until rerun with an artifact digest; hosted CI execution remains `not_proven`.
+- Local CI-equivalent runner: verified by the current combined run across formatting, strict Clippy, 33 package tests, the security fixture, and the Apex compatibility test.
 - Repository-local CI invocation: not proven until a workflow or local target executes the package.

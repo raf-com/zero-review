@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.zero/schemas/zero-review/evidence-v1.schema.json",
+  "title": "Zero Review content-hashed evidence v1",
+  "type": "object",
+  "required": ["schema_version", "kind", "source", "content_sha256", "byte_length"],
+  "properties": {
+    "schema_version": { "const": "zero-review.evidence.v1" },
+    "kind": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "minLength": 1 },
+    "content_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "byte_length": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}

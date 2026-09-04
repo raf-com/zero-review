@@ -1,7 +1,41 @@
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
-use std::{path::Path, process::Stdio};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs::{self, File, OpenOptions},
+    io::Read,
+    path::{Path, PathBuf},
+    process::Stdio,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use tokio::process::Command;
+
+const SCHEMA: &str = "zero-review.adapter-registry.v1";
+const MAX_TIMEOUT_MS: u64 = 900_000;
+const MAX_OUTPUT_BYTES: usize = 16 * 1024 * 1024;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdapterRegistry {
+    pub schema_version: String,
+    pub adapters: Vec<AdapterConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdapterConfig {
+    pub id: String,
+    pub executable: PathBuf,
+    pub sha256: String,
+    #[serde(default)]
+    pub allowed_arguments: Vec<String>,
+    pub working_directory: PathBuf,
+    #[serde(default)]
+    pub environment: BTreeMap<String, String>,
+    pub timeout_ms: u64,
+    pub output_limit_bytes: usize,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AdapterResult {
@@ -10,39 +44,258 @@ pub struct AdapterResult {
     pub exit_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
 }
 
-pub async fn run(program: &Path, args: &[String], timeout_ms: u64) -> Result<AdapterResult> {
-    if !program.is_file() {
-        bail!("adapter executable not found: {}", program.display());
+pub fn load_registry(path: &Path) -> Result<AdapterRegistry> {
+    let bytes =
+        fs::read(path).with_context(|| format!("read adapter registry {}", path.display()))?;
+    let registry: AdapterRegistry = serde_json::from_slice(&bytes)
+        .with_context(|| format!("parse adapter registry {}", path.display()))?;
+    validate_registry(&registry)?;
+    Ok(registry)
+}
+
+pub fn validate_registry(registry: &AdapterRegistry) -> Result<()> {
+    if registry.schema_version != SCHEMA {
+        bail!(
+            "unsupported adapter registry schema: {}",
+            registry.schema_version
+        );
     }
-    let mut command = Command::new(program);
-    command.args(args).stdin(Stdio::null()).kill_on_drop(true);
-    let output = tokio::time::timeout(
-        std::time::Duration::from_millis(timeout_ms),
-        command.output(),
-    )
-    .await
-    .with_context(|| {
-        format!(
-            "adapter timed out after {timeout_ms}ms: {}",
-            program.display()
-        )
-    })?
-    .with_context(|| format!("run adapter {}", program.display()))?;
-    Ok(AdapterResult {
-        program: program.display().to_string(),
-        success: output.status.success(),
-        exit_code: output.status.code(),
-        stdout: String::from_utf8_lossy(&output.stdout).into(),
-        stderr: String::from_utf8_lossy(&output.stderr).into(),
-    })
+    let mut ids = BTreeSet::new();
+    for adapter in &registry.adapters {
+        if adapter.id.trim().is_empty() || !ids.insert(adapter.id.as_str()) {
+            bail!("adapter id must be non-empty and unique: {}", adapter.id);
+        }
+        if !adapter.executable.is_absolute() || !adapter.working_directory.is_absolute() {
+            bail!(
+                "adapter {} executable and working directory must be absolute",
+                adapter.id
+            );
+        }
+        if adapter.sha256.len() != 64
+            || !adapter
+                .sha256
+                .bytes()
+                .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
+        {
+            bail!("adapter {} requires a lowercase SHA-256 digest", adapter.id);
+        }
+        if adapter.timeout_ms == 0 || adapter.timeout_ms > MAX_TIMEOUT_MS {
+            bail!(
+                "adapter {} timeout is outside the allowed range",
+                adapter.id
+            );
+        }
+        if adapter.output_limit_bytes == 0 || adapter.output_limit_bytes > MAX_OUTPUT_BYTES {
+            bail!(
+                "adapter {} output limit is outside the allowed range",
+                adapter.id
+            );
+        }
+        if adapter.allowed_arguments.iter().any(String::is_empty) {
+            bail!("adapter {} has an empty argument prefix", adapter.id);
+        }
+        if adapter.environment.keys().any(|key| {
+            key.is_empty()
+                || key.contains('=')
+                || key.contains('\0')
+                || key.eq_ignore_ascii_case("PATH")
+                || key.eq_ignore_ascii_case("PATHEXT")
+        }) {
+            bail!(
+                "adapter {} has an invalid process environment key",
+                adapter.id
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Compatibility entrypoint: requires an explicit registry via environment and
+/// matches the requested executable and timeout against it.
+pub async fn run(program: &Path, args: &[String], timeout_ms: u64) -> Result<AdapterResult> {
+    let registry_path = std::env::var_os("ZERO_REVIEW_ADAPTER_REGISTRY")
+        .map(PathBuf::from)
+        .context("ZERO_REVIEW_ADAPTER_REGISTRY is required")?;
+    let registry = load_registry(&registry_path)?;
+    let requested =
+        fs::canonicalize(program).with_context(|| format!("canonicalize {}", program.display()))?;
+    let adapter = registry
+        .adapters
+        .iter()
+        .find(|entry| fs::canonicalize(&entry.executable).ok().as_ref() == Some(&requested))
+        .with_context(|| {
+            format!(
+                "adapter executable is not registered: {}",
+                program.display()
+            )
+        })?;
+    if timeout_ms != adapter.timeout_ms {
+        bail!(
+            "adapter timeout must match configured value {}ms",
+            adapter.timeout_ms
+        );
+    }
+    run_configured(adapter, args).await
+}
+
+pub async fn run_registered(
+    registry: &AdapterRegistry,
+    adapter_id: &str,
+    args: &[String],
+) -> Result<AdapterResult> {
+    validate_registry(registry)?;
+    let adapter = registry
+        .adapters
+        .iter()
+        .find(|entry| entry.id == adapter_id)
+        .with_context(|| format!("adapter is not registered: {adapter_id}"))?;
+    run_configured(adapter, args).await
+}
+
+async fn run_configured(adapter: &AdapterConfig, args: &[String]) -> Result<AdapterResult> {
+    validate_arguments(adapter, args)?;
+    if !adapter.executable.is_file() {
+        bail!(
+            "adapter executable not found: {}",
+            adapter.executable.display()
+        );
+    }
+    if !adapter.working_directory.is_dir() {
+        bail!(
+            "adapter working directory not found: {}",
+            adapter.working_directory.display()
+        );
+    }
+    let actual = sha256_file(&adapter.executable)?;
+    if actual != adapter.sha256 {
+        bail!(
+            "adapter executable digest mismatch for {}: expected {}, got {}",
+            adapter.id,
+            adapter.sha256,
+            actual
+        );
+    }
+    let stdout_path = output_path(&adapter.id, "stdout")?;
+    let stderr_path = output_path(&adapter.id, "stderr")?;
+    let stdout_file = create_output(&stdout_path)?;
+    let stderr_file = create_output(&stderr_path)?;
+    let result = async {
+        let mut child = Command::new(&adapter.executable)
+            .args(args)
+            .current_dir(&adapter.working_directory)
+            .env_clear()
+            .envs(&adapter.environment)
+            .stdin(Stdio::null())
+            .stdout(Stdio::from(stdout_file))
+            .stderr(Stdio::from(stderr_file))
+            .kill_on_drop(true)
+            .spawn()
+            .with_context(|| format!("run configured adapter {}", adapter.id))?;
+        let status =
+            match tokio::time::timeout(Duration::from_millis(adapter.timeout_ms), child.wait())
+                .await
+            {
+                Ok(status) => status.with_context(|| format!("wait for adapter {}", adapter.id))?,
+                Err(_) => {
+                    child
+                        .kill()
+                        .await
+                        .with_context(|| format!("kill timed out adapter {}", adapter.id))?;
+                    let _ = child.wait().await;
+                    bail!(
+                        "adapter timed out after {}ms: {}",
+                        adapter.timeout_ms,
+                        adapter.id
+                    );
+                }
+            };
+        let (stdout, stdout_truncated) = read_bounded(&stdout_path, adapter.output_limit_bytes)?;
+        let (stderr, stderr_truncated) = read_bounded(&stderr_path, adapter.output_limit_bytes)?;
+        Ok(AdapterResult {
+            program: adapter.executable.display().to_string(),
+            success: status.success(),
+            exit_code: status.code(),
+            stdout,
+            stderr,
+            stdout_truncated,
+            stderr_truncated,
+        })
+    }
+    .await;
+    let _ = fs::remove_file(stdout_path);
+    let _ = fs::remove_file(stderr_path);
+    result
+}
+
+fn validate_arguments(adapter: &AdapterConfig, args: &[String]) -> Result<()> {
+    for argument in args {
+        if argument.contains('\0')
+            || !adapter
+                .allowed_arguments
+                .iter()
+                .any(|allowed| argument == allowed)
+        {
+            bail!(
+                "argument is not allowed for adapter {}: {argument:?}",
+                adapter.id
+            );
+        }
+    }
+    Ok(())
+}
+
+fn sha256_file(path: &Path) -> Result<String> {
+    let mut file = File::open(path)?;
+    let mut digest = Sha256::new();
+    let mut buffer = [0_u8; 65_536];
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        digest.update(&buffer[..count]);
+    }
+    Ok(hex::encode(digest.finalize()))
+}
+
+fn output_path(id: &str, stream: &str) -> Result<PathBuf> {
+    let nonce = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let safe_id: String = id
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
+        .collect();
+    Ok(std::env::temp_dir().join(format!(
+        "zero-review-{safe_id}-{}-{nonce}-{stream}.tmp",
+        std::process::id()
+    )))
+}
+
+fn create_output(path: &Path) -> Result<File> {
+    OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .with_context(|| format!("create adapter output {}", path.display()))
+}
+
+fn read_bounded(path: &Path, limit: usize) -> Result<(String, bool)> {
+    let mut bytes = Vec::with_capacity(limit.min(65_536));
+    File::open(path)?
+        .take(limit as u64 + 1)
+        .read_to_end(&mut bytes)?;
+    let truncated = bytes.len() > limit;
+    bytes.truncate(limit);
+    Ok((String::from_utf8_lossy(&bytes).into_owned(), truncated))
 }
 
 pub async fn probe(url: &str) -> Result<serde_json::Value> {
     let client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
-        .timeout(std::time::Duration::from_secs(5))
+        .timeout(Duration::from_secs(5))
         .build()?;
     let response = client.get(url).send().await?;
     Ok(
@@ -53,21 +306,106 @@ pub async fn probe(url: &str) -> Result<serde_json::Value> {
 #[cfg(all(test, windows))]
 mod tests {
     use super::*;
-
+    use tempfile::TempDir;
+    fn config(temp: &TempDir, timeout_ms: u64, output_limit_bytes: usize) -> AdapterConfig {
+        let executable = PathBuf::from("C:\\Windows\\System32\\cmd.exe");
+        AdapterConfig {
+            id: "powershell-test".into(),
+            sha256: sha256_file(&executable).unwrap(),
+            executable,
+            allowed_arguments: vec![
+                "/d".into(),
+                "/c".into(),
+                "echo 123456789".into(),
+                "C:\\Windows\\System32\\ping.exe -n 6 127.0.0.1 >nul".into(),
+            ],
+            working_directory: temp.path().to_path_buf(),
+            environment: BTreeMap::from([(
+                "SystemRoot".into(),
+                std::env::var("SystemRoot").expect("Windows supplies SystemRoot"),
+            )]),
+            timeout_ms,
+            output_limit_bytes,
+        }
+    }
     #[tokio::test]
-    async fn bounded_adapter_reports_timeout() {
-        let arguments = vec![
-            "-NoProfile".into(),
-            "-Command".into(),
-            "Start-Sleep -Seconds 5".into(),
-        ];
-        let error = run(
-            Path::new("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"),
-            &arguments,
-            25,
+    async fn digest_pinned_execution_bounds_output() {
+        let temp = TempDir::new().unwrap();
+        let cfg = config(&temp, 30_000, 4);
+        let registry = AdapterRegistry {
+            schema_version: SCHEMA.into(),
+            adapters: vec![cfg],
+        };
+        let result = run_registered(
+            &registry,
+            "powershell-test",
+            &["/d".into(), "/c".into(), "echo 123456789".into()],
+        )
+        .await
+        .unwrap();
+        assert!(result.success && result.stdout_truncated);
+        assert_eq!(result.stdout.len(), 4);
+    }
+    #[tokio::test]
+    async fn rejects_unlisted_arguments_and_digest_drift() {
+        let temp = TempDir::new().unwrap();
+        let mut cfg = config(&temp, 5_000, 100);
+        assert!(
+            run_configured(&cfg, &["/q".into()])
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("not allowed")
+        );
+        cfg.sha256 = "0".repeat(64);
+        assert!(
+            run_configured(&cfg, &[])
+                .await
+                .unwrap_err()
+                .to_string()
+                .contains("digest mismatch")
+        );
+    }
+    #[tokio::test]
+    async fn rejects_shell_text_appended_to_allowed_argument() {
+        let temp = TempDir::new().unwrap();
+        let cfg = config(&temp, 5_000, 100);
+        let error = run_configured(
+            &cfg,
+            &["/d".into(), "/c".into(), "echo 123456789 & set".into()],
+        )
+        .await
+        .unwrap_err();
+        assert!(error.to_string().contains("not allowed"));
+    }
+    #[tokio::test]
+    async fn kills_on_timeout() {
+        let temp = TempDir::new().unwrap();
+        let cfg = config(&temp, 25, 100);
+        let error = run_configured(
+            &cfg,
+            &[
+                "/d".into(),
+                "/c".into(),
+                "C:\\Windows\\System32\\ping.exe -n 6 127.0.0.1 >nul".into(),
+            ],
         )
         .await
         .unwrap_err();
         assert!(error.to_string().contains("timed out"));
+    }
+    #[test]
+    fn rejects_unsafe_bounds_and_environment() {
+        let temp = TempDir::new().unwrap();
+        let mut cfg = config(&temp, 0, 100);
+        let mut registry = AdapterRegistry {
+            schema_version: SCHEMA.into(),
+            adapters: vec![cfg.clone()],
+        };
+        assert!(validate_registry(&registry).is_err());
+        cfg.timeout_ms = 100;
+        cfg.environment.insert("PATH".into(), "unsafe".into());
+        registry.adapters = vec![cfg];
+        assert!(validate_registry(&registry).is_err());
     }
 }

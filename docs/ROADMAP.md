@@ -13,7 +13,7 @@ Deliverables:
 - Record repository existence, Git identity, Rust workspace presence, and explicit evidence boundaries.
 - Add drift tests for missing, renamed, duplicated, or newly relevant roots.
 
-Exit: inventory generation and graph integrity tests pass on a clean checkout. Current state: locally implemented; all roots remain `source_only` for capability claims.
+Exit: inventory generation and graph integrity tests pass on a clean checkout. Current state: partial; inventory exists, but full root-drift coverage and a HEAD-fresh snapshot gate remain open. All roots remain `source_only` for capability claims.
 
 ## Stage 1: Canonical contracts
 
@@ -27,6 +27,8 @@ Deliverables:
 
 Exit: contract tests reject stale SHAs, unknown schema versions, unsigned privileged actions, missing evidence, path traversal, and oversized adapter output.
 
+Current state: partial. Applicability and decision schemas, CLI packet validation, signed/replay-safe overrides, evidence-content verification at policy ingestion, and compatibility fixtures remain open.
+
 ## Stage 2: Applicability and orchestration
 
 Deliverables:
@@ -35,9 +37,13 @@ Deliverables:
 - Route only relevant specialist checks while retaining mandatory global controls.
 - Execute adapters without a shell, with allowlisted binaries and bounded resources.
 - Support cancellation when the PR head changes.
+- Migrate each Zero executable to an exact-argument, digest-pinned adapter registry entry.
+- Ingest specialist security adapter results without treating the built-in pattern scan as complete coverage.
 - Normalize partial, blocked, owner-gated, and not-proven outcomes without collapsing them into success.
 
 Exit: deterministic matrix tests cover application, infrastructure, dependency, migration, security, UI, documentation-only, and mixed changes.
+
+Current state: partial. Deterministic path routing exists; cancellation, registry migration, and specialist execution remain open.
 
 ## Stage 3: Evidence and policy engine
 
@@ -47,6 +53,8 @@ Deliverables:
 - Extend the hash chain to a signed review-packet manifest when an authorized key is available.
 - Detect stale, missing, contradictory, duplicated, or tampered evidence.
 - Require explicit owners and expiry for overrides; prohibit self-approval.
+- Bind overrides to repository, base/head SHA, tool release digest, signer identity, nonce, and a bounded validity interval; reject replay.
+- Assemble and validate review packets through a CLI entrypoint, including decision consistency, required controls, timestamps, and evidence content.
 - Emit a single machine-readable merge decision with actionable reasons.
 
 Exit: mutation and fault-injection tests demonstrate fail-closed behavior across evidence corruption, adapter failure, timeout, and policy disagreement.
@@ -61,6 +69,7 @@ Deliverables:
 - Publish concise check annotations without exposing secrets or personal data.
 - Configure `zero-review` as a required status check and read the protection rule back through zero-github.
 - Invalidate approvals when the reviewed head changes and require CODEOWNER review for protected surfaces.
+- Prove hosted artifact upload and required-check readback on the intended repository.
 
 Exit: a hosted PR run on the intended repository and workflow revision produces a valid packet; branch-protection readback proves merge is blocked when the check or human approval is absent. Owner-gated until release and repository settings are authorized.
 
@@ -70,6 +79,7 @@ Deliverables:
 
 - Register a least-privilege Apex producer identity for review events.
 - Sign review outcome events and submit them to the authenticated trace sink.
+- Bind release provenance to the checksum of the executed binary rather than a package-version constant.
 - Route advisory evaluation through apex_evals and proof reconciliation through apex_proofs.
 - Correlate PR, workflow, adapter, finding, decision, reviewer, and merge events.
 - Publish operational views through apex_monitoring and apex_dashboards.

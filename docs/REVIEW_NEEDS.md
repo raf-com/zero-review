@@ -1,6 +1,6 @@
 # Review needs
 
-Every PR must produce a review packet bound to its base and head SHA. Applicability is path/risk driven, but change-scope, automated correctness, security, dependency review, and independent human approval fail closed when their evidence is absent.
+Every PR must produce a review packet bound to its base and head SHA. Applicability is path/risk driven. Change-scope and independent human approval are global controls; correctness, security, dependency, and specialist controls fail closed whenever routing marks them applicable and their evidence is absent.
 
 ```mermaid
 flowchart TB

@@ -2,9 +2,9 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 use std::{fs, path::PathBuf};
 use zero_review::{
-    Decision, EvidenceStatus, Receipt, ReviewInput, adapter, apex_event_from_receipt,
-    append_receipt, evaluate, inventory_repository, review_needs, review_needs_diagram,
-    scan_security, verify_ledger,
+    Decision, EvidenceArtifact, EvidenceStatus, Receipt, ReviewInput, adapter,
+    apex_event_from_receipt, append_evidence_receipt, evaluate, inventory_repository, review_needs,
+    review_needs_diagram, scan_security, verify_ledger,
 };
 
 #[derive(Parser)]
@@ -40,7 +40,7 @@ enum Commands {
         diagram: PathBuf,
     },
     Route {
-        #[arg(long, required = true)]
+        #[arg(long)]
         path: Vec<String>,
         #[arg(long)]
         out: Option<PathBuf>,
@@ -198,12 +198,20 @@ async fn main() -> Result<()> {
             evidence,
             status,
         } => emit(
-            &append_receipt(
+            &append_evidence_receipt(
                 &ledger,
                 &operation,
                 &subject,
                 parse_status(&status)?,
-                evidence,
+                evidence
+                    .iter()
+                    .map(|path| {
+                        EvidenceArtifact::from_file(
+                            "review_artifact",
+                            PathBuf::from(path).as_path(),
+                        )
+                    })
+                    .collect::<Result<Vec<_>>>()?,
             )?,
             None,
         ),

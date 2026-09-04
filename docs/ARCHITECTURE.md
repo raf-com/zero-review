@@ -10,14 +10,16 @@ flowchart LR
   WF --> INV[Inventory repository controls]
   WF --> NEEDS[Publish review-needs catalog]
   WF --> TESTS[Repository tests and specialist checks]
+  WF --> REGISTRY[Digest-pinned adapter registry and exact arguments]
+  REGISTRY --> TESTS
   INV --> POLICY[Fail-closed policy engine]
   NEEDS --> POLICY
   TESTS --> NORMALIZE[Normalized findings v1]
   NORMALIZE --> POLICY
-  POLICY --> RECEIPT[SHA-bound review artifacts and hash chain]
+  POLICY --> RECEIPT[Typed evidence artifacts and locked hash chain]
   POLICY --> HUMAN[Independent human review]
   RECEIPT --> PROOF[Zero proof and evidence consumers]
-  RECEIPT --> APEX[Apex unsigned advisory event]
+  RECEIPT --> APEX[Apex local unsigned advisory export]
   APEX -. authenticated submission requires owner identity .-> TRACE[Apex trace sink]
   HUMAN --> PROTECT[Required status check and branch protection]
   RECEIPT --> PROTECT
@@ -38,3 +40,5 @@ flowchart LR
 3. Apex export is unsigned by default; authenticated submission is owner-gated.
 4. A local pass does not prove the hosted workflow or branch-protection rule executed.
 5. Human approval remains mandatory for merge; the tool never self-approves.
+6. Built-in security pattern results remain `not_proven` for specialist coverage.
+7. Override signing, replay protection, and authenticated Apex producer identity remain owner-gated.

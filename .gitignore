@@ -1,4 +1,5 @@
 /target/
+/target-*/
 /.target-verify/
 /artifacts/
 /contract-tests/apex-compat/target/

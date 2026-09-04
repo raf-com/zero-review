@@ -4,10 +4,19 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$Commit
 )
 $ErrorActionPreference = 'Stop'
-cargo build --release --locked
-if ($LASTEXITCODE -ne 0) { throw "cargo build failed with exit $LASTEXITCODE" }
 $dist = Join-Path $PWD 'dist'
 $root = Join-Path $dist "zero-review-$Target"
+$plannedOutputs = @(
+    $root,
+    (Join-Path $dist "zero-review-$Target.exe"),
+    (Join-Path $dist "zero-review-$Target.zip"),
+    (Join-Path $dist "zero-review-$Target.manifest.json")
+)
+if ($plannedOutputs | Where-Object { Test-Path -LiteralPath $_ }) {
+    throw 'release output already exists; refusing to replace immutable package artifacts'
+}
+cargo build --release --locked
+if ($LASTEXITCODE -ne 0) { throw "cargo build failed with exit $LASTEXITCODE" }
 New-Item -ItemType Directory -Force $root | Out-Null
 Copy-Item 'target\release\zero-review.exe' $root
 Copy-Item 'target\release\zero-review.exe' (Join-Path $dist "zero-review-$Target.exe")

@@ -208,11 +208,23 @@ def collect(args: argparse.Namespace) -> dict:
         raise CollectError("too many workflow runs to correlate safely")
 
     job_to_run: dict[int, tuple[str, str]] = {}
+    workflow_definition_shas: dict[str, str] = {}
     for run in runs:
         run_id = run.get("id")
         path, event, run_head = run.get("path"), run.get("event"), run.get("head_sha")
         if not isinstance(run_id, int) or not isinstance(path, str) or not isinstance(event, str) or run_head != args.head_sha:
             raise CollectError("workflow run correlation identity is incomplete")
+        definition_url = client._url(
+            f"{repo_path}/contents/{urllib.parse.quote(path, safe='/')}",
+            {"ref": args.head_sha},
+        )
+        definition = require_object(client.get(definition_url)[0], "workflow definition")
+        definition_sha = definition.get("sha")
+        if not isinstance(definition_sha, str) or not SHA_RE.fullmatch(definition_sha):
+            raise CollectError("workflow definition content SHA is missing or invalid")
+        if definition.get("path") != path:
+            raise CollectError("workflow definition path does not match workflow run")
+        workflow_definition_shas[path] = definition_sha.lower()
         for job in client.paginated(f"{repo_path}/actions/runs/{run_id}/jobs", "jobs"):
             check_url = job.get("check_run_url")
             match = re.search(r"/check-runs/(\d+)$", check_url or "")
@@ -236,6 +248,7 @@ def collect(args: argparse.Namespace) -> dict:
             "app": {"id": app.get("id"), "slug": app.get("slug")},
             "workflow_path": correlation[0] if correlation else None,
             "event": correlation[1] if correlation else None,
+            "workflow_definition_sha": workflow_definition_shas.get(correlation[0]) if correlation else None,
         })
 
     permissions: dict[str, str] = {}

@@ -40,3 +40,13 @@ base/default-branch revision, then re-fetch the PR immediately before packet
 emission. Until that collector and hosted negative cases exist, the script is
 fixture-tested infrastructure and must not be configured as a required status
 check.
+
+## Protected workflow provenance requirement
+
+`workflow_definition_sha` is necessary but not sufficient evidence. The collector
+must retain each run's `workflow_id` and `referenced_workflows` records, then
+compare the executed definition and every reusable-workflow SHA with the approved
+workflow definition from the protected default-branch revision. A workflow file
+fetched only from the pull-request head proves content identity, not protection.
+Missing, mutable, mismatched, or unverifiable protected-definition evidence is
+`not_proven` and must fail closed.

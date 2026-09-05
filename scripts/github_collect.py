@@ -207,10 +207,10 @@ def collect(args: argparse.Namespace) -> dict:
     if len(runs) > MAX_WORKFLOW_RUNS:
         raise CollectError("too many workflow runs to correlate safely")
 
-    job_to_run: dict[int, tuple[str, str]] = {}
-    workflow_definition_shas: dict[str, str] = {}
+    job_to_run: dict[int, tuple[int, int | None, str, str, str]] = {}
     for run in runs:
         run_id = run.get("id")
+        workflow_id = run.get("workflow_id")
         path, event, run_head = run.get("path"), run.get("event"), run.get("head_sha")
         if not isinstance(run_id, int) or not isinstance(path, str) or not isinstance(event, str) or run_head != args.head_sha:
             raise CollectError("workflow run correlation identity is incomplete")
@@ -224,14 +224,15 @@ def collect(args: argparse.Namespace) -> dict:
             raise CollectError("workflow definition content SHA is missing or invalid")
         if definition.get("path") != path:
             raise CollectError("workflow definition path does not match workflow run")
-        workflow_definition_shas[path] = definition_sha.lower()
+        if workflow_id is not None and not isinstance(workflow_id, int):
+            raise CollectError("workflow run workflow_id is malformed")
         for job in client.paginated(f"{repo_path}/actions/runs/{run_id}/jobs", "jobs"):
             check_url = job.get("check_run_url")
             match = re.search(r"/check-runs/(\d+)$", check_url or "")
             if not match:
                 raise CollectError("workflow job is missing check-run correlation")
             check_id = int(match.group(1))
-            identity = (path, event)
+            identity = (run_id, workflow_id, path, event, definition_sha.lower())
             if check_id in job_to_run:
                 raise CollectError("check run has ambiguous workflow correlation")
             job_to_run[check_id] = identity
@@ -246,9 +247,11 @@ def collect(args: argparse.Namespace) -> dict:
             "id": check.get("id"), "name": check.get("name"), "head_sha": check.get("head_sha"),
             "status": check.get("status"), "conclusion": check.get("conclusion"),
             "app": {"id": app.get("id"), "slug": app.get("slug")},
-            "workflow_path": correlation[0] if correlation else None,
-            "event": correlation[1] if correlation else None,
-            "workflow_definition_sha": workflow_definition_shas.get(correlation[0]) if correlation else None,
+            "workflow_run_id": correlation[0] if correlation else None,
+            "workflow_id": correlation[1] if correlation else None,
+            "workflow_path": correlation[2] if correlation else None,
+            "event": correlation[3] if correlation else None,
+            "workflow_definition_sha": correlation[4] if correlation else None,
         })
 
     permissions: dict[str, str] = {}

@@ -24,8 +24,14 @@ try {
     cargo build --locked
     if ($LASTEXITCODE -ne 0) { throw "cargo build failed" }
 
-    python -m unittest discover -s tests -p 'github_consumer_test.py' -v
-    if ($LASTEXITCODE -ne 0) { throw "GitHub consumer contract tests failed" }
+    python -m unittest discover -s tests -p '*_test.py' -v
+    if ($LASTEXITCODE -ne 0) { throw "Python contract tests failed" }
+
+    python -m py_compile scripts/github_collect.py scripts/github_consumer.py scripts/release_verify.py
+    if ($LASTEXITCODE -ne 0) { throw "Python contract compilation failed" }
+
+    Get-Content schemas/pilot-metrics-v1.schema.json -Raw | ConvertFrom-Json | Out-Null
+    Get-Content schemas/witness-checkpoint-v1.schema.json -Raw | ConvertFrom-Json | Out-Null
 
     cargo run --locked -- security-scan --input $securityFixture --out (Join-Path $artifactRoot 'security-scan.json')
     if ($LASTEXITCODE -ne 0) { throw "security fixture scan failed" }

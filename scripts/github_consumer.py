@@ -53,7 +53,7 @@ def load_control_map(path: Path) -> dict[str, list[tuple[str, str, str, str]]]:
                 "check mapping",
             )
             identity = (item["name"], item["app_slug"], item["workflow_path"], item["event"])
-            if not all(isinstance(x, str) and x for x in identity):
+            if not all(isinstance(x, str) and x.strip() and x == x.strip() for x in identity):
                 raise ConsumerError("check identity fields must be non-empty strings")
             if identity in identities:
                 raise ConsumerError(f"duplicate trusted check identity: {identity}")
@@ -70,11 +70,20 @@ def select_approval(snapshot: dict, head_sha: str, author_id: int) -> str:
     for review in snapshot.get("reviews", []):
         if not isinstance(review, dict) or not isinstance(review.get("id"), int) or review["id"] <= 0:
             raise ConsumerError("review ID must be a positive integer")
-        user = review.get("user") or {}
+        user = review.get("user")
+        if not isinstance(user, dict):
+            raise ConsumerError("review user must be an object")
         user_id = user.get("id")
         if not isinstance(user_id, int):
             raise ConsumerError("review is missing immutable reviewer ID")
-        if user_id not in latest or review["id"] > latest[user_id]["id"]:
+        if review.get("state") == "COMMENTED":
+            continue
+        try:
+            submitted_at = datetime.fromisoformat(review["submitted_at"].replace("Z", "+00:00"))
+        except (KeyError, AttributeError, ValueError) as error:
+            raise ConsumerError("review submission time is invalid") from error
+        review["_submitted_at"] = submitted_at
+        if user_id not in latest or (submitted_at, review["id"]) > (latest[user_id]["_submitted_at"], latest[user_id]["id"]):
             latest[user_id] = review
     approved = []
     permissions = snapshot.get("permissions", {})
@@ -85,7 +94,7 @@ def select_approval(snapshot: dict, head_sha: str, author_id: int) -> str:
             review.get("state") == "APPROVED"
             and review.get("commit_id") == head_sha
             and user_id != author_id
-            and user.get("type") != "Bot"
+            and user.get("type") == "User"
             and permissions.get(str(user_id)) in {"admin", "maintain", "write", "push"}
         ):
             if not isinstance(login, str) or not login.strip() or login != login.strip():
@@ -156,9 +165,27 @@ def evaluate_snapshot(
     files = snapshot.get("files")
     if not isinstance(files, list) or len(files) != pr["changed_files"]:
         raise ConsumerError("changed-file pagination is incomplete")
+    filenames = []
+    for file_item in files:
+        if not isinstance(file_item, dict):
+            raise ConsumerError("changed-file entry must be an object")
+        filename = file_item.get("filename")
+        if not isinstance(filename, str) or not filename.strip() or filename != filename.strip():
+            raise ConsumerError("changed-file name is invalid")
+        filenames.append(filename)
+    if len(set(filenames)) != len(filenames):
+        raise ConsumerError("changed-file list contains duplicates")
     checks = snapshot.get("checks")
     if not isinstance(checks, list):
         raise ConsumerError("checks must be an array")
+    for check in checks:
+        if not isinstance(check, dict) or not isinstance(check.get("app"), dict):
+            raise ConsumerError("check entry is malformed")
+    permissions = snapshot.get("permissions")
+    if not isinstance(permissions, dict) or any(
+        not isinstance(key, str) or not isinstance(value, str) for key, value in permissions.items()
+    ):
+        raise ConsumerError("permissions must map reviewer IDs to permission strings")
     for control, identities in mappings.items():
         for name, app_slug, workflow_path, event in identities:
             matches = [
@@ -238,7 +265,7 @@ def main() -> int:
             "required_controls": list(mappings),
             "evidence": [{
                 "schema_version": "zero-review.evidence.v2", "control_id": control_id,
-                "kind": "github-api-snapshot", "status": "verified", "location": str(args.snapshot),
+                "kind": "github-api-snapshot", "status": "verified", "location": str(args.snapshot.resolve()),
                 "sha256": digest, "byte_length": size,
                 "command": [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]],
                 "executable_sha256": f"sha256:{exe_digest}", "exit_code": 0,

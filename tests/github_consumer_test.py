@@ -4,7 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,7 +21,7 @@ def snapshot():
         "pull_request": {"number": 7, "state": "open", "author": {"id": 1, "login": "author"}, "base_sha": "a" * 40, "head_sha": head, "changed_files": 1},
         "files": [{"filename": "src/lib.rs"}],
         "checks": [{"name": "tests / unit", "app": {"slug": "github-actions"}, "workflow_path": ".github/workflows/tests.yml", "event": "pull_request", "head_sha": head, "status": "completed", "conclusion": "success"}],
-        "reviews": [{"id": 9, "state": "APPROVED", "commit_id": head, "user": {"id": 2, "login": "reviewer", "type": "User"}}],
+        "reviews": [{"id": 9, "state": "APPROVED", "submitted_at": datetime.now(timezone.utc).isoformat(), "commit_id": head, "user": {"id": 2, "login": "reviewer", "type": "User"}}],
         "permissions": {"2": "push"},
     }
 
@@ -83,10 +83,151 @@ class ConsumerTests(unittest.TestCase):
 
     def test_multiple_valid_approvals_selects_latest(self):
         value = snapshot()
-        value["reviews"].append({"id": 10, "state": "APPROVED", "commit_id": "b" * 40, "user": {"id": 3, "login": "latest", "type": "User"}})
+        value["reviews"].append({"id": 10, "state": "APPROVED", "submitted_at": datetime.now(timezone.utc).isoformat(), "commit_id": "b" * 40, "user": {"id": 3, "login": "latest", "type": "User"}})
         value["permissions"]["3"] = "write"
         _, reviewer, _ = self.evaluate(value)
         self.assertEqual(reviewer, "latest")
+
+    def test_rejects_malformed_review_identity_types(self):
+        malformed_reviews = [
+            {"id": "9", "state": "APPROVED", "commit_id": "b" * 40, "user": {"id": 2, "login": "reviewer", "type": "User"}},
+            {"id": 9, "state": "APPROVED", "commit_id": "b" * 40, "user": {"id": "2", "login": "reviewer", "type": "User"}},
+            {"id": 9, "state": "APPROVED", "commit_id": "b" * 40, "user": "reviewer"},
+            {"id": 9, "state": "APPROVED", "commit_id": "b" * 40, "user": {"id": 2, "login": ["reviewer"], "type": "User"}},
+        ]
+        for review in malformed_reviews:
+            with self.subTest(review=review):
+                value = snapshot()
+                value["reviews"] = [review]
+                with self.assertRaises(consumer.ConsumerError):
+                    self.evaluate(value)
+
+    def test_rejects_author_self_approval_by_immutable_user_id(self):
+        for user in (
+            {"id": 1, "login": "author", "type": "User"},
+            {"id": 1, "login": "renamed-author", "type": "User"},
+        ):
+            with self.subTest(user=user):
+                value = snapshot()
+                value["reviews"][0]["user"] = user
+                value["permissions"][str(user["id"])] = "push"
+                with self.assertRaises(consumer.ConsumerError):
+                    self.evaluate(value)
+
+    def test_multiple_approvals_do_not_mask_invalid_review_entries(self):
+        value = snapshot()
+        value["reviews"].append({"id": "bad", "state": "APPROVED", "commit_id": "b" * 40, "user": {"id": 3, "login": "other", "type": "User"}})
+        value["permissions"]["3"] = "push"
+        with self.assertRaises(consumer.ConsumerError):
+            self.evaluate(value)
+
+    def test_rejects_stale_and_future_snapshot_capture(self):
+        for captured_at in (
+            datetime.now(timezone.utc) - timedelta(hours=2),
+            datetime.now(timezone.utc) + timedelta(minutes=10),
+        ):
+            with self.subTest(captured_at=captured_at):
+                value = snapshot()
+                value["captured_at"] = captured_at.isoformat()
+                with self.assertRaises(consumer.ConsumerError):
+                    self.evaluate(value)
+
+    def test_rejects_whitespace_control_and_reviewer_fields(self):
+        whitespace_cases = []
+        for field in ("name", "workflow_path", "event"):
+            value = snapshot()
+            value["checks"][0][field] = " "
+            whitespace_cases.append(value)
+        value = snapshot()
+        value["checks"][0]["app"]["slug"] = " "
+        whitespace_cases.append(value)
+        value = snapshot()
+        value["reviews"][0]["user"]["login"] = " "
+        whitespace_cases.append(value)
+        value = snapshot()
+        value["reviews"][0]["user"]["type"] = " "
+        whitespace_cases.append(value)
+        for value in whitespace_cases:
+            with self.subTest(value=value):
+                with self.assertRaises(consumer.ConsumerError):
+                    self.evaluate(value)
+
+    def test_rejects_failed_incomplete_and_stale_checks(self):
+        mutations = (
+            ("status", "queued"),
+            ("conclusion", "failure"),
+            ("head_sha", "c" * 40),
+        )
+        for field, replacement in mutations:
+            with self.subTest(field=field):
+                value = snapshot()
+                value["checks"][0][field] = replacement
+                with self.assertRaises(consumer.ConsumerError):
+                    self.evaluate(value)
+
+    def test_rejects_malformed_or_duplicate_files_checks_and_permissions(self):
+        cases = []
+        value = snapshot()
+        value["files"] = ["src/lib.rs"]
+        cases.append(value)
+        value = snapshot()
+        value["pull_request"]["changed_files"] = 2
+        value["files"] = [{"filename": "src/lib.rs"}, {"filename": "src/lib.rs"}]
+        cases.append(value)
+        value = snapshot()
+        value["checks"] = ["tests / unit"]
+        cases.append(value)
+        value = snapshot()
+        value["permissions"] = []
+        cases.append(value)
+        for value in cases:
+            with self.subTest(value=value):
+                with self.assertRaises(consumer.ConsumerError):
+                    self.evaluate(value)
+
+    def test_rejects_malformed_control_maps(self):
+        malformed = (
+            None,
+            [],
+            {},
+            {"schema_version": "wrong", "controls": {}},
+            {"schema_version": "zero-review.control-check-map.v1", "controls": []},
+            {"schema_version": "zero-review.control-check-map.v1", "controls": {" ": []}},
+            {"schema_version": "zero-review.control-check-map.v1", "controls": {"tests": []}},
+            {"schema_version": "zero-review.control-check-map.v1", "controls": {"tests": [{"name": " ", "app_slug": "github-actions", "workflow_path": ".github/workflows/tests.yml", "event": "pull_request"}]}},
+            {"schema_version": "zero-review.control-check-map.v1", "controls": {"tests": [{"name": "tests / unit", "app_slug": "github-actions", "workflow_path": ".github/workflows/tests.yml"}]}},
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "controls.json"
+            for index, value in enumerate(malformed):
+                with self.subTest(index=index):
+                    path.write_text(json.dumps(value), encoding="utf-8")
+                    with self.assertRaises(consumer.ConsumerError):
+                        consumer.load_control_map(path)
+
+    def test_cli_refuses_to_overwrite_preexisting_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            snapshot_path = work / "snapshot.json"
+            map_path = work / "controls.json"
+            packet_path = work / "packet.json"
+            snapshot_path.write_text(json.dumps(snapshot()), encoding="utf-8")
+            map_path.write_text(json.dumps({
+                "schema_version": "zero-review.control-check-map.v1",
+                "controls": {"tests": [{
+                    "name": "tests / unit", "app_slug": "github-actions",
+                    "workflow_path": ".github/workflows/tests.yml", "event": "pull_request",
+                }]},
+            }), encoding="utf-8")
+            packet_path.write_text("sentinel", encoding="utf-8")
+            result = subprocess.run([
+                sys.executable, str(ROOT / "scripts" / "github_consumer.py"),
+                "--snapshot", str(snapshot_path), "--control-map", str(map_path),
+                "--repository", "owner/repo", "--pull-request-number", "7",
+                "--base-sha", "a" * 40, "--head-sha", "b" * 40, "--out", str(packet_path),
+            ], capture_output=True, text=True, check=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(packet_path.read_text(encoding="utf-8"), "sentinel")
 
     def test_rejects_invalid_author_and_identical_shas(self):
         value = snapshot()

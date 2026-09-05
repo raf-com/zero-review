@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-review.local/schemas/pilot-metrics-v1.schema.json",
+  "title": "Zero Review pilot metrics aggregate v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pilot_id",
+    "repository",
+    "window_started_at",
+    "window_ended_at",
+    "generated_at",
+    "observation_status",
+    "counters",
+    "latency_ms",
+    "blocked_causes",
+    "not_proven_causes",
+    "source_receipts"
+  ],
+  "properties": {
+    "schema_version": { "const": "zero-review.pilot-metrics.v1" },
+    "pilot_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "repository": { "type": "string", "pattern": "^[^/\\s]+/[^/\\s]+$" },
+    "window_started_at": { "type": "string", "format": "date-time" },
+    "window_ended_at": { "type": "string", "format": "date-time" },
+    "generated_at": { "type": "string", "format": "date-time" },
+    "observation_status": {
+      "enum": ["pre_pilot", "observed", "partial", "not_proven"]
+    },
+    "counters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pull_requests_enrolled",
+        "evaluations_started",
+        "evaluations_completed",
+        "adapter_attempts",
+        "adapter_successes",
+        "stale_evidence_detected",
+        "stale_head_packets_accepted",
+        "overrides_presented",
+        "replayed_overrides_detected",
+        "replayed_overrides_accepted",
+        "false_positive_dispositions",
+        "blocked_decisions",
+        "not_proven_decisions"
+      ],
+      "properties": {
+        "pull_requests_enrolled": { "$ref": "#/$defs/count" },
+        "evaluations_started": { "$ref": "#/$defs/count" },
+        "evaluations_completed": { "$ref": "#/$defs/count" },
+        "adapter_attempts": { "$ref": "#/$defs/count" },
+        "adapter_successes": { "$ref": "#/$defs/count" },
+        "stale_evidence_detected": { "$ref": "#/$defs/count" },
+        "stale_head_packets_accepted": { "$ref": "#/$defs/count" },
+        "overrides_presented": { "$ref": "#/$defs/count" },
+        "replayed_overrides_detected": { "$ref": "#/$defs/count" },
+        "replayed_overrides_accepted": { "$ref": "#/$defs/count" },
+        "false_positive_dispositions": { "$ref": "#/$defs/count" },
+        "blocked_decisions": { "$ref": "#/$defs/count" },
+        "not_proven_decisions": { "$ref": "#/$defs/count" }
+      }
+    },
+    "latency_ms": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["control_plane", "queue"],
+      "properties": {
+        "control_plane": { "$ref": "#/$defs/distribution" },
+        "queue": { "$ref": "#/$defs/distribution" }
+      }
+    },
+    "blocked_causes": { "$ref": "#/$defs/causeCounts" },
+    "not_proven_causes": { "$ref": "#/$defs/causeCounts" },
+    "source_receipts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/receipt" },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "count": { "type": "integer", "minimum": 0 },
+    "distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_count", "p50", "p95"],
+      "properties": {
+        "sample_count": { "$ref": "#/$defs/count" },
+        "p50": { "type": ["integer", "null"], "minimum": 0 },
+        "p95": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "causeCounts": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$" },
+      "additionalProperties": { "$ref": "#/$defs/count" }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receipt_id", "sha256"],
+      "properties": {
+        "receipt_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

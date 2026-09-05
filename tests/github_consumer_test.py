@@ -229,6 +229,17 @@ class ConsumerTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertEqual(packet_path.read_text(encoding="utf-8"), "sentinel")
 
+    def test_rejects_missing_or_malformed_workflow_definition_provenance(self):
+        for value in (None, "", "g" * 40, "c" * 39):
+            with self.subTest(value=value):
+                candidate = snapshot()
+                if value is None:
+                    del candidate["checks"][0]["workflow_definition_sha"]
+                else:
+                    candidate["checks"][0]["workflow_definition_sha"] = value
+                with self.assertRaisesRegex(consumer.ConsumerError, "workflow definition provenance"):
+                    self.evaluate(candidate)
+
     def test_rejects_invalid_author_and_identical_shas(self):
         value = snapshot()
         value["pull_request"]["author"]["login"] = " "

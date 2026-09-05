@@ -57,7 +57,7 @@
     {
       "id": "ZR-PILOT-001",
       "title": "Protected webapp_core pilot",
-      "state": "scaffolded_local_refresh_blocked",
+      "state": "scaffolded_local_refreshed_pending_release",
       "blocked_by": ["ZR-SC-001", "immutable-attested-release"],
       "acceptance": ["Refresh isolated branch", "Hosted negative and positive receipts", "Required-check protection readback"]
     },

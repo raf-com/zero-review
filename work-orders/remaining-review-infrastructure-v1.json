@@ -10,7 +10,7 @@
     {
       "id": "ZR-GH-001",
       "title": "Trusted GitHub API collector",
-      "state": "implemented_local_pending_hosted_ci",
+      "state": "implemented_hosted_ci_passed",
       "owner_surface": "scripts/github_collect.py",
       "acceptance": [
         "Collect PR identity, fully paginated files, check runs, workflow runs, reviews, and collaborator permissions using read-only APIs",
@@ -22,7 +22,7 @@
     {
       "id": "ZR-GH-002",
       "title": "Reusable consumer workflow",
-      "state": "implemented_local_pending_hosted_ci",
+      "state": "implemented_hosted_ci_passed",
       "owner_surface": ".github/workflows/consumer-review.yml",
       "acceptance": [
         "Use workflow_call with minimal read-only permissions and no PR-head execution",
@@ -33,7 +33,7 @@
     {
       "id": "ZR-GH-003",
       "title": "Adversarial consumer contract tests",
-      "state": "implemented_local_pending_hosted_ci",
+      "state": "implemented_hosted_ci_passed",
       "owner_surface": "tests/github_consumer_test.py",
       "acceptance": [
         "Cover malformed review identities, author approvals, multiple approvals, stale output, timestamp bounds, and control-map edge cases",

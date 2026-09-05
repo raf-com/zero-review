@@ -228,6 +228,8 @@ def collect(args: argparse.Namespace) -> dict:
     for check in checks:
         app = require_object(check.get("app"), "check app")
         correlation = job_to_run.get(check.get("id"))
+        if correlation is None:
+            raise CollectError("check run lacks workflow-run correlation")
         projected_checks.append({
             "id": check.get("id"), "name": check.get("name"), "head_sha": check.get("head_sha"),
             "status": check.get("status"), "conclusion": check.get("conclusion"),

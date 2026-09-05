@@ -11,6 +11,11 @@ paths, binary diff, applicability, security findings, prerequisite checks, and t
 latest independent head-bound approval. Missing mappings, incomplete checks, stale
 approvals, duplicate trusted check identities, and blocking findings fail closed.
 
+Consumers must invoke this workflow by full commit SHA from an approved protected
+revision. They must not pass a caller-selected tooling SHA. The called workflow
+derives `github.workflow_sha` and accepts it only when it appears in the trusted
+tooling allowlist; an unapproved branch, tag, or fork therefore fails closed.
+
 The current consumer polls boundedly because its prerequisite workflow graph is owned
 by the consumer repository. Once the canonical prerequisite jobs are identified,
 the preferred deterministic arrangement is a terminal local job that calls a

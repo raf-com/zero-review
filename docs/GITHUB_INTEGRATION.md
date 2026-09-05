@@ -3,7 +3,8 @@
 Consumer repositories configure `ZERO_REVIEW_RELEASE_URL`, `ZERO_REVIEW_SHA256`, and
 `ZERO_REVIEW_CONTROL_CHECKS_JSON`. The control map uses
 `zero-review.control-check-map.v1`; every applicable control maps to one or more
-exact check names and GitHub App slugs. A name match from another App is not evidence.
+exact check names, GitHub App slugs, trusted workflow paths, and trigger events. A
+name/App match from a different workflow is not evidence.
 
 The consumer workflow binds repository, pull request, base SHA, head SHA, changed
 paths, binary diff, applicability, security findings, prerequisite checks, and the
@@ -21,9 +22,21 @@ release and repository ruleset configuration.
 Example variable value:
 
 ```json
-{"schema_version":"zero-review.control-check-map.v1","controls":{"tests":[{"name":"tests / unit","app_slug":"github-actions"}],"security":[{"name":"security / scan","app_slug":"github-actions"}]}}
+{"schema_version":"zero-review.control-check-map.v1","controls":{"tests":[{"name":"tests / unit","app_slug":"github-actions","workflow_path":".github/workflows/tests.yml","event":"pull_request"}],"security":[{"name":"security / scan","app_slug":"github-actions","workflow_path":".github/workflows/security.yml","event":"pull_request"}]}}
 ```
 
 Acceptance requires a hosted negative run for absent or spoofed checks, a hosted
 negative run without a current-head independent approval, a passing run with all
 mapped checks, and ruleset readback proving the Zero Review check is required.
+
+## Snapshot evaluator boundary
+
+`scripts/github_consumer.py` is the deterministic policy core for a snapshot made
+by a trusted collector. It does not collect or authenticate GitHub API responses.
+Workflow path, event, check name, and App slug inside a supplied snapshot remain
+producer claims. A release-capable collector must correlate each check to its
+workflow run and prove that the executed workflow definition came from a protected
+base/default-branch revision, then re-fetch the PR immediately before packet
+emission. Until that collector and hosted negative cases exist, the script is
+fixture-tested infrastructure and must not be configured as a required status
+check.

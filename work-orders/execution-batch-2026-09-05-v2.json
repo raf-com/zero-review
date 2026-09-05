@@ -1,0 +1,12 @@
+{
+  "schema_version": "zero-review.execution-work-orders.v2",
+  "generated_at": "2026-09-05T00:00:00Z",
+  "dispatch_mode": "harness_native_subagents",
+  "orders": [
+    {"id":"ZR-P0-001","title":"Protected evaluator provenance design","owner_surface":".github/workflows/consumer-review.yml, scripts/github_collect.py, docs/GITHUB_INTEGRATION.md","acceptance":["Design a fail-closed protected-baseline or immutable-release model","Remove caller-controlled trust assumptions where safely possible","Add static/adversarial tests for self-modifying evaluator scenarios","Document owner-gated repository configuration"],"blocked_by":["protected main/release SHA and repository administration"]},
+    {"id":"ZR-PKT-001","title":"Review packet and witness contract completion","owner_surface":"src/contracts.rs, src/evidence.rs, schemas/, tests/","acceptance":["Audit packet assembly and signed-manifest gaps","Implement only local deterministic contract improvements","Add tamper/replay/contradiction tests","Report external witness requirements separately"],"blocked_by":["external witness identity"]},
+    {"id":"ZR-GOV-002","title":"Pilot and release governance work order","owner_surface":"docs/PILOT_OPERATIONS.md, docs/ADOPTION.md, work-orders/","acceptance":["Define pilot entry/exit evidence","Define independent-review and release-authority gates","Map source/local/hosted/runtime receipts","Do not approve, merge, tag, or release" ]},
+    {"id":"ZR-SUP-001","title":"Supply-chain and reproducibility audit","owner_surface":".github/workflows/release.yml, scripts/package-release.ps1, deny.toml, Cargo.lock","acceptance":["Audit pinned actions, lockfile, SBOM and reproducibility controls","Add safe static checks only if required","Run local checks and report exact receipts","No release publication"]},
+    {"id":"ZR-OBS-001","title":"Observability and incident evidence plan","owner_surface":"docs/OPERATIONS_POLICY.md, docs/APEX_OPERATIONS_AUDIT_2026-09-05.md","acceptance":["Specify review latency, queue, adapter, stale-evidence and outage evidence","Define incident and rollback receipts","Keep Apex advisory and owner-gated","No runtime claim without fresh probes"]}
+  ]
+}

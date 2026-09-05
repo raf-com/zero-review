@@ -1,51 +1,36 @@
-[CmdletBinding()]
 param(
-    [string]$Version = '0.1.0-rc.1'
+    [Parameter(Mandatory)][ValidateSet('windows-x86_64')][string]$Target,
+    [Parameter(Mandatory)][string]$Version,
+    [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$Commit
 )
-
 $ErrorActionPreference = 'Stop'
-$packageRoot = Split-Path -Parent $PSScriptRoot
-$artifactRoot = Join-Path $packageRoot 'artifacts\release'
-$bundleRoot = Join-Path $artifactRoot "zero-review-$Version-windows-x86_64"
-$archive = "$bundleRoot.zip"
-
-Push-Location $packageRoot
-try {
-    cargo build --release --locked
-    if ($LASTEXITCODE -ne 0) { throw "release build failed" }
-
-    New-Item -ItemType Directory -Force -Path $bundleRoot | Out-Null
-    Copy-Item -LiteralPath (Join-Path $packageRoot 'target\release\zero-review.exe') -Destination $bundleRoot -Force
-    Copy-Item -LiteralPath (Join-Path $packageRoot 'README.md') -Destination $bundleRoot -Force
-    Copy-Item -LiteralPath (Join-Path $packageRoot 'schemas\review-input-v1.schema.json') -Destination $bundleRoot -Force
-
-    $binary = Join-Path $bundleRoot 'zero-review.exe'
-    $binaryHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $binary).Hash.ToLowerInvariant()
-    $commit = git rev-parse HEAD
-    if ($LASTEXITCODE -ne 0) { throw "git revision lookup failed" }
-
-    [pscustomobject]@{
-        schema_version = 'zero-review.release.v1'
-        version = $Version
-        commit = $commit.Trim()
-        target = 'windows-x86_64'
-        binary_sha256 = $binaryHash
-        generated_at = [DateTimeOffset]::UtcNow.ToString('o')
-    } | ConvertTo-Json |
-        Set-Content -LiteralPath (Join-Path $bundleRoot 'release-manifest.json') -Encoding utf8
-
-    Compress-Archive -Path (Join-Path $bundleRoot '*') -DestinationPath $archive -Force
-    $archiveHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
-    [pscustomobject]@{
-        archive = $archive
-        archive_sha256 = $archiveHash
-        binary_sha256 = $binaryHash
-        manifest = (Join-Path $bundleRoot 'release-manifest.json')
-    } | ConvertTo-Json |
-        Set-Content -LiteralPath (Join-Path $artifactRoot 'release-receipt.json') -Encoding utf8
-
-    Get-Content -LiteralPath (Join-Path $artifactRoot 'release-receipt.json') -Raw
+$dist = Join-Path $PWD 'dist'
+$root = Join-Path $dist "zero-review-$Target"
+$plannedOutputs = @(
+    $root,
+    (Join-Path $dist "zero-review-$Target.exe"),
+    (Join-Path $dist "zero-review-$Target.zip"),
+    (Join-Path $dist "zero-review-$Target.manifest.json")
+)
+if ($plannedOutputs | Where-Object { Test-Path -LiteralPath $_ }) {
+    throw 'release output already exists; refusing to replace immutable package artifacts'
 }
-finally {
-    Pop-Location
+cargo build --release --locked
+if ($LASTEXITCODE -ne 0) { throw "cargo build failed with exit $LASTEXITCODE" }
+New-Item -ItemType Directory -Force $root | Out-Null
+Copy-Item 'target\release\zero-review.exe' $root
+Copy-Item 'target\release\zero-review.exe' (Join-Path $dist "zero-review-$Target.exe")
+Copy-Item README.md $root
+Copy-Item -Recurse schemas $root
+cargo metadata --locked --format-version 1 | Out-File -LiteralPath (Join-Path $root 'dependency-inventory.json') -Encoding utf8
+if ($LASTEXITCODE -ne 0) { throw "cargo metadata failed with exit $LASTEXITCODE" }
+$binaryHash = (Get-FileHash -Algorithm SHA256 (Join-Path $root 'zero-review.exe')).Hash.ToLowerInvariant()
+$manifest = [ordered]@{ schema_version='zero-review.release.v1'; version=$Version; commit=$Commit; target=$Target; binary_sha256=$binaryHash }
+$utf8 = [Text.UTF8Encoding]::new($false)
+[IO.File]::WriteAllText((Join-Path $root 'release-manifest.json'), ($manifest | ConvertTo-Json), $utf8)
+Copy-Item (Join-Path $root 'release-manifest.json') (Join-Path $dist "zero-review-$Target.manifest.json")
+Compress-Archive -Path "$root\*" -DestinationPath (Join-Path $dist "zero-review-$Target.zip")
+foreach ($file in @("zero-review-$Target.exe", "zero-review-$Target.zip", "zero-review-$Target.manifest.json")) {
+    $hash = (Get-FileHash -Algorithm SHA256 (Join-Path $dist $file)).Hash.ToLowerInvariant()
+    [IO.File]::WriteAllText((Join-Path $dist "$file.sha256"), "$hash  $file`n", $utf8)
 }

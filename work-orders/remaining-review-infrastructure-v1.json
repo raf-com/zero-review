@@ -1,0 +1,80 @@
+{
+  "schema_version": "zero-review.work-orders.v1",
+  "generated_at": "2026-09-05T07:45:00Z",
+  "dispatch": {
+    "apex_preflight": "blocked",
+    "reason": "dispatcher_quiesced",
+    "fallback": "harness_native_subagents"
+  },
+  "orders": [
+    {
+      "id": "ZR-GH-001",
+      "title": "Trusted GitHub API collector",
+      "state": "implemented_hosted_ci_passed",
+      "owner_surface": "scripts/github_collect.py",
+      "acceptance": [
+        "Collect PR identity, fully paginated files, check runs, workflow runs, reviews, and collaborator permissions using read-only APIs",
+        "Bind repository, PR, base, and head to trusted workflow inputs and re-fetch before emission",
+        "Reject API truncation, rate limiting, ambiguity, and head movement",
+        "Require protected workflow-definition provenance for every check identity; supplied path/event/App fields alone remain not_proven"
+      ]
+    },
+    {
+      "id": "ZR-GH-002",
+      "title": "Reusable consumer workflow",
+      "state": "implemented_hosted_ci_passed",
+      "owner_surface": ".github/workflows/consumer-review.yml",
+      "acceptance": [
+        "Use workflow_call with minimal read-only permissions and no PR-head execution",
+        "Pin every third-party action to a full commit SHA",
+        "Expose a stable terminal check and retain receipts for 90 days"
+      ]
+    },
+    {
+      "id": "ZR-GH-003",
+      "title": "Adversarial consumer contract tests",
+      "state": "implemented_hosted_ci_passed",
+      "owner_surface": "tests/github_consumer_test.py",
+      "acceptance": [
+        "Cover malformed review identities, author approvals, multiple approvals, stale output, timestamp bounds, and control-map edge cases",
+        "Keep the real Rust v3 validator in the positive contract path",
+        "Record hosted-only workflow provenance attacks as unproven rather than fixture-passed"
+      ]
+    },
+    {
+      "id": "ZR-SC-001",
+      "title": "Immutable release download and attestation verifier",
+      "state": "implemented_local_pending_release_receipt",
+      "blocked_by": ["ZR-GH-001", "ZR-GH-002", "PR-1-independent-review"],
+      "acceptance": ["Allowlisted immutable asset URL", "Bounded download", "SHA-256 and GitHub attestation verification"]
+    },
+    {
+      "id": "ZR-APEX-001",
+      "title": "Versioned Apex v2 trace adapter",
+      "state": "owner_gated",
+      "blocked_by": ["canonical-apex-trace-repository", "producer-identity", "mTLS-material"],
+      "acceptance": ["Ed25519 verification", "mTLS producer binding", "durable replay rejection", "readback evidence"]
+    },
+    {
+      "id": "ZR-PILOT-001",
+      "title": "Protected webapp_core pilot",
+      "state": "scaffolded_local_refreshed_pending_release",
+      "blocked_by": ["ZR-SC-001", "immutable-attested-release"],
+      "acceptance": ["Refresh isolated branch", "Hosted negative and positive receipts", "Required-check protection readback"]
+    },
+    {
+      "id": "ZR-GOV-001",
+      "title": "Independent reviewer and release identities",
+      "state": "owner_gated",
+      "blocked_by": ["distinct-authorized-human-identities"],
+      "acceptance": ["Non-author PR approval", "Release environment reviewer", "Self-review prevention without deadlock"]
+    },
+    {
+      "id": "ZR-OPS-001",
+      "title": "Pilot metrics and external witness",
+      "state": "implemented_local_pending_pilot_and_witness",
+      "blocked_by": ["ZR-PILOT-001", "ZR-APEX-001"],
+      "acceptance": ["30-day metrics", "Override and stale-evidence accounting", "Independently retained checkpoint witness"]
+    }
+  ]
+}

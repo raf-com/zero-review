@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.zero/schemas/zero-review/apex-event-v2.schema.json",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "event_id", "trace_id", "expert_id", "release_digest", "receipt_id", "receipt_sha256", "event_type", "timestamp_utc", "policy_decision", "evaluation_status", "producer_id", "producer_key_id", "producer_signature"],
+  "properties": {
+    "schema_version": {"const": "zero-review.apex-event.v2"},
+    "event_id": {"type": "string", "minLength": 1}, "trace_id": {"type": "string", "minLength": 1}, "task_id": {"type": ["string", "null"]},
+    "expert_id": {"type": "string", "pattern": "^expert:"}, "release_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "receipt_id": {"type": "string", "pattern": "^expert-manifest-"}, "receipt_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "event_type": {"enum": ["invocation", "outcome", "suspended"]}, "timestamp_utc": {"type": "string", "format": "date-time"},
+    "policy_decision": {"enum": ["allowed", "denied", "approval_required", "suspended"]}, "evaluation_status": {"enum": ["not_run", "pass", "partial", "fail"]},
+    "tool_name": {"type": ["string", "null"]}, "tool_result_sha256": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}, "outcome_status": {"type": ["string", "null"], "enum": ["succeeded", "failed", "abstained", null]},
+    "producer_id": {"type": "string", "minLength": 1}, "producer_key_id": {"type": "string", "minLength": 1}, "producer_signature": {"type": "string", "pattern": "^[0-9a-f]{128}$"}
+  }
+}

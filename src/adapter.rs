@@ -7,7 +7,7 @@ use std::{
     io::Read,
     path::{Path, PathBuf},
     process::Stdio,
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::Duration,
 };
 use tokio::process::Command;
 
@@ -156,6 +156,17 @@ pub async fn run_registered(
     run_configured(adapter, args).await
 }
 
+/// Registry-first entrypoint for CLI and orchestration callers. The caller never
+/// supplies an executable path or timeout, only a reviewed adapter identifier.
+pub async fn run_registered_file(
+    registry_path: &Path,
+    adapter_id: &str,
+    args: &[String],
+) -> Result<AdapterResult> {
+    let registry = load_registry(registry_path)?;
+    run_registered(&registry, adapter_id, args).await
+}
+
 async fn run_configured(adapter: &AdapterConfig, args: &[String]) -> Result<AdapterResult> {
     validate_arguments(adapter, args)?;
     if !adapter.executable.is_file() {
@@ -164,13 +175,15 @@ async fn run_configured(adapter: &AdapterConfig, args: &[String]) -> Result<Adap
             adapter.executable.display()
         );
     }
+    reject_reparse_point(&adapter.executable)?;
     if !adapter.working_directory.is_dir() {
         bail!(
             "adapter working directory not found: {}",
             adapter.working_directory.display()
         );
     }
-    let actual = sha256_file(&adapter.executable)?;
+    let execution = PrivateExecution::prepare(adapter)?;
+    let actual = sha256_file(&execution.executable)?;
     if actual != adapter.sha256 {
         bail!(
             "adapter executable digest mismatch for {}: expected {}, got {}",
@@ -179,12 +192,14 @@ async fn run_configured(adapter: &AdapterConfig, args: &[String]) -> Result<Adap
             actual
         );
     }
-    let stdout_path = output_path(&adapter.id, "stdout")?;
-    let stderr_path = output_path(&adapter.id, "stderr")?;
+    let stdout_path = execution.directory.join("stdout");
+    let stderr_path = execution.directory.join("stderr");
     let stdout_file = create_output(&stdout_path)?;
     let stderr_file = create_output(&stderr_path)?;
     let result = async {
-        let mut child = Command::new(&adapter.executable)
+        let mut command = Command::new(&execution.executable);
+        configure_process_tree(&mut command);
+        let mut child = command
             .args(args)
             .current_dir(&adapter.working_directory)
             .env_clear()
@@ -201,10 +216,9 @@ async fn run_configured(adapter: &AdapterConfig, args: &[String]) -> Result<Adap
             {
                 Ok(status) => status.with_context(|| format!("wait for adapter {}", adapter.id))?,
                 Err(_) => {
-                    child
-                        .kill()
-                        .await
-                        .with_context(|| format!("kill timed out adapter {}", adapter.id))?;
+                    terminate_process_tree(&mut child).await.with_context(|| {
+                        format!("kill timed out adapter process tree {}", adapter.id)
+                    })?;
                     let _ = child.wait().await;
                     bail!(
                         "adapter timed out after {}ms: {}",
@@ -226,9 +240,93 @@ async fn run_configured(adapter: &AdapterConfig, args: &[String]) -> Result<Adap
         })
     }
     .await;
-    let _ = fs::remove_file(stdout_path);
-    let _ = fs::remove_file(stderr_path);
-    result
+    let cleanup = execution.close();
+    match (result, cleanup) {
+        (Ok(value), Ok(())) => Ok(value),
+        (Err(run_error), Ok(())) => Err(run_error),
+        (Ok(_), Err(cleanup_error)) => Err(cleanup_error),
+        (Err(run_error), Err(cleanup_error)) => Err(run_error.context(cleanup_error)),
+    }
+}
+
+#[cfg(windows)]
+fn reject_reparse_point(path: &Path) -> Result<()> {
+    use std::os::windows::fs::MetadataExt;
+    const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
+    let attributes = fs::symlink_metadata(path)?.file_attributes();
+    if attributes & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+        bail!(
+            "adapter executable must not be a Windows reparse point: {}",
+            path.display()
+        );
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn reject_reparse_point(path: &Path) -> Result<()> {
+    if fs::symlink_metadata(path)?.file_type().is_symlink() {
+        bail!(
+            "adapter executable must not be a symbolic link: {}",
+            path.display()
+        );
+    }
+    Ok(())
+}
+
+/// A private execution workspace closes the digest-check/exec race: the configured
+/// source is copied first, the copy is verified, and only that copy is executed.
+/// Explicit `close` reports cleanup failures; `Drop` remains a best-effort fallback.
+struct PrivateExecution {
+    directory: PathBuf,
+    executable: PathBuf,
+    closed: bool,
+}
+
+impl PrivateExecution {
+    fn prepare(adapter: &AdapterConfig) -> Result<Self> {
+        let directory = private_directory(&adapter.id)?;
+        let extension = adapter.executable.extension().and_then(|v| v.to_str());
+        let name = extension.map_or_else(|| "adapter".to_owned(), |ext| format!("adapter.{ext}"));
+        let executable = directory.join(name);
+        let prepared = (|| {
+            fs::copy(&adapter.executable, &executable).with_context(|| {
+                format!(
+                    "copy adapter {} into private execution workspace",
+                    adapter.id
+                )
+            })?;
+            restrict_file(&executable)?;
+            Ok(Self {
+                directory: directory.clone(),
+                executable,
+                closed: false,
+            })
+        })();
+        if prepared.is_err() {
+            let _ = fs::remove_dir_all(&directory);
+        }
+        prepared
+    }
+
+    fn close(mut self) -> Result<()> {
+        fs::remove_dir_all(&self.directory).with_context(|| {
+            format!(
+                "remove private adapter workspace {}",
+                self.directory.display()
+            )
+        })?;
+        self.closed = true;
+        Ok(())
+    }
+}
+
+impl Drop for PrivateExecution {
+    fn drop(&mut self) {
+        if !self.closed {
+            let _ = fs::remove_dir_all(&self.directory);
+        }
+    }
 }
 
 fn validate_arguments(adapter: &AdapterConfig, args: &[String]) -> Result<()> {
@@ -262,24 +360,111 @@ fn sha256_file(path: &Path) -> Result<String> {
     Ok(hex::encode(digest.finalize()))
 }
 
-fn output_path(id: &str, stream: &str) -> Result<PathBuf> {
-    let nonce = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+fn private_directory(id: &str) -> Result<PathBuf> {
     let safe_id: String = id
         .chars()
         .map(|c| if c.is_ascii_alphanumeric() { c } else { '_' })
         .collect();
-    Ok(std::env::temp_dir().join(format!(
-        "zero-review-{safe_id}-{}-{nonce}-{stream}.tmp",
-        std::process::id()
-    )))
+    let path = tempfile::Builder::new()
+        .prefix(&format!("zero-review-{safe_id}-"))
+        .tempdir()?
+        .keep();
+    restrict_directory(&path)?;
+    Ok(path)
 }
 
 fn create_output(path: &Path) -> Result<File> {
-    OpenOptions::new()
+    let file = OpenOptions::new()
         .write(true)
         .create_new(true)
         .open(path)
-        .with_context(|| format!("create adapter output {}", path.display()))
+        .with_context(|| format!("create adapter output {}", path.display()))?;
+    restrict_file(path)?;
+    Ok(file)
+}
+
+#[cfg(unix)]
+fn restrict_directory(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
+    Ok(())
+}
+
+#[cfg(windows)]
+fn restrict_directory(path: &Path) -> Result<()> {
+    let identity = windows_identity()?;
+    let status = std::process::Command::new("C:\\Windows\\System32\\icacls.exe")
+        .arg(path)
+        .args(["/inheritance:r", "/grant:r"])
+        .arg(format!("{identity}:(OI)(CI)F"))
+        .arg("SYSTEM:(OI)(CI)F")
+        .status()
+        .context("apply private adapter workspace DACL")?;
+    if !status.success() {
+        bail!("failed to apply private adapter workspace DACL");
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn restrict_file(path: &Path) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o700))?;
+    Ok(())
+}
+
+#[cfg(windows)]
+fn restrict_file(path: &Path) -> Result<()> {
+    reject_reparse_point(path)?;
+    Ok(())
+}
+
+#[cfg(windows)]
+fn windows_identity() -> Result<String> {
+    let user = std::env::var("USERNAME").context("USERNAME is required for adapter DACL")?;
+    let domain = std::env::var("USERDOMAIN").unwrap_or_default();
+    Ok(if domain.is_empty() {
+        user
+    } else {
+        format!("{domain}\\{user}")
+    })
+}
+
+#[cfg(unix)]
+fn configure_process_tree(command: &mut Command) {
+    use std::os::unix::process::CommandExt;
+    command.as_std_mut().process_group(0);
+}
+
+#[cfg(windows)]
+fn configure_process_tree(_command: &mut Command) {}
+
+#[cfg(unix)]
+async fn terminate_process_tree(child: &mut tokio::process::Child) -> Result<()> {
+    if let Some(pid) = child.id() {
+        let status = Command::new("kill")
+            .args(["-KILL", &format!("-{pid}")])
+            .status()
+            .await?;
+        if !status.success() {
+            child.kill().await?;
+        }
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+async fn terminate_process_tree(child: &mut tokio::process::Child) -> Result<()> {
+    if let Some(pid) = child.id() {
+        let status = Command::new("C:\\Windows\\System32\\taskkill.exe")
+            .args(["/PID", &pid.to_string(), "/T", "/F"])
+            .status()
+            .await?;
+        if !status.success() {
+            child.kill().await?;
+        }
+    }
+    Ok(())
 }
 
 fn read_bounded(path: &Path, limit: usize) -> Result<(String, bool)> {
@@ -301,6 +486,55 @@ pub async fn probe(url: &str) -> Result<serde_json::Value> {
     Ok(
         serde_json::json!({"url":url,"status":response.status().as_u16(),"reachable":response.status().is_success()}),
     )
+}
+
+#[cfg(test)]
+mod portable_tests {
+    use super::*;
+
+    fn registry() -> AdapterRegistry {
+        AdapterRegistry {
+            schema_version: SCHEMA.into(),
+            adapters: vec![AdapterConfig {
+                id: "portable".into(),
+                executable: if cfg!(windows) {
+                    PathBuf::from(r"C:\adapter.exe")
+                } else {
+                    PathBuf::from("/adapter")
+                },
+                sha256: "a".repeat(64),
+                allowed_arguments: vec!["--check".into()],
+                working_directory: if cfg!(windows) {
+                    PathBuf::from(r"C:\work")
+                } else {
+                    PathBuf::from("/work")
+                },
+                environment: BTreeMap::new(),
+                timeout_ms: 1_000,
+                output_limit_bytes: 1_024,
+            }],
+        }
+    }
+
+    #[test]
+    fn validation_accepts_a_portable_well_formed_registry() {
+        validate_registry(&registry()).unwrap();
+    }
+
+    #[test]
+    fn validation_rejects_duplicates_uppercase_digest_and_path_environment() {
+        let mut value = registry();
+        value.adapters.push(value.adapters[0].clone());
+        assert!(validate_registry(&value).is_err());
+        value = registry();
+        value.adapters[0].sha256 = "A".repeat(64);
+        assert!(validate_registry(&value).is_err());
+        value = registry();
+        value.adapters[0]
+            .environment
+            .insert("PATH".into(), "unsafe".into());
+        assert!(validate_registry(&value).is_err());
+    }
 }
 
 #[cfg(all(test, windows))]

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.zero/schemas/zero-review/evidence-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "control_id", "kind", "status", "location", "sha256", "byte_length", "command", "executable_sha256", "exit_code", "started_at", "completed_at"],
+  "properties": {
+    "schema_version": {"const": "zero-review.evidence.v2"},
+    "control_id": {"type": "string", "minLength": 1},
+    "kind": {"type": "string", "minLength": 1},
+    "status": {"enum": ["verified", "partial", "blocked", "not_proven"]},
+    "location": {"type": "string", "minLength": 1},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "byte_length": {"type": "integer", "minimum": 0},
+    "command": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "executable_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "exit_code": {"type": "integer", "minimum": -2147483648, "maximum": 2147483647},
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"}
+  }
+}

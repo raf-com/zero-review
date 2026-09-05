@@ -3,8 +3,9 @@ use crate::{
     model::{EvidenceStatus, Receipt},
 };
 use anyhow::{Context, Result, bail};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use fs2::FileExt;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     fs::{self, OpenOptions},
@@ -16,6 +17,149 @@ use std::{
 
 const LOCK_WAIT: Duration = Duration::from_secs(60);
 const LOCK_RETRY: Duration = Duration::from_millis(10);
+
+pub const LEDGER_CHECKPOINT_SCHEMA_V1: &str = "zero-review.ledger-checkpoint.v1";
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct LedgerCheckpoint {
+    pub schema_version: String,
+    pub ledger_id: String,
+    pub entry_count: u64,
+    pub last_entry_hash: String,
+    pub key_id: String,
+    pub created_at: DateTime<Utc>,
+    pub signature_algorithm: String,
+    pub signature: String,
+}
+
+pub trait LedgerCheckpointVerifier {
+    fn verify_checkpoint(
+        &self,
+        key_id: &str,
+        signed_at: DateTime<Utc>,
+        payload: &[u8],
+        signature: &str,
+    ) -> bool;
+}
+
+pub fn ledger_checkpoint_payload(
+    ledger_id: &str,
+    entry_count: u64,
+    last_entry_hash: &str,
+    key_id: &str,
+    created_at: DateTime<Utc>,
+) -> Result<Vec<u8>> {
+    if ledger_id.trim().is_empty() || key_id.trim().is_empty() {
+        bail!("ledger checkpoint identity and key ID must not be empty");
+    }
+    validate_hash(last_entry_hash)?;
+    serde_json::to_vec(&(
+        "zero-review.ledger-checkpoint-signature.v1",
+        LEDGER_CHECKPOINT_SCHEMA_V1,
+        "ed25519",
+        ledger_id,
+        entry_count,
+        last_entry_hash,
+        key_id,
+        created_at,
+    ))
+    .context("serialize ledger checkpoint payload")
+}
+
+pub fn create_ledger_checkpoint(
+    path: &Path,
+    ledger_id: impl Into<String>,
+    key_id: impl Into<String>,
+    signature: impl Into<String>,
+) -> Result<LedgerCheckpoint> {
+    create_ledger_checkpoint_at(path, ledger_id, key_id, Utc::now(), signature)
+}
+
+pub fn create_ledger_checkpoint_at(
+    path: &Path,
+    ledger_id: impl Into<String>,
+    key_id: impl Into<String>,
+    created_at: DateTime<Utc>,
+    signature: impl Into<String>,
+) -> Result<LedgerCheckpoint> {
+    let (entry_count, last_entry_hash) = ledger_tip(path)?;
+    if entry_count == 0 {
+        bail!("cannot checkpoint an empty ledger");
+    }
+    let checkpoint = LedgerCheckpoint {
+        schema_version: LEDGER_CHECKPOINT_SCHEMA_V1.into(),
+        ledger_id: ledger_id.into(),
+        entry_count: entry_count as u64,
+        last_entry_hash,
+        key_id: key_id.into(),
+        created_at,
+        signature_algorithm: "ed25519".into(),
+        signature: signature.into(),
+    };
+    ledger_checkpoint_payload(
+        &checkpoint.ledger_id,
+        checkpoint.entry_count,
+        &checkpoint.last_entry_hash,
+        &checkpoint.key_id,
+        checkpoint.created_at,
+    )?;
+    if checkpoint.signature.len() != 128
+        || !checkpoint
+            .signature
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+    {
+        bail!("ledger checkpoint signature must contain 128 lowercase hexadecimal digits");
+    }
+    Ok(checkpoint)
+}
+
+pub fn verify_ledger_checkpoint(
+    path: &Path,
+    checkpoint: &LedgerCheckpoint,
+    verifier: &dyn LedgerCheckpointVerifier,
+) -> Result<usize> {
+    if checkpoint.schema_version != LEDGER_CHECKPOINT_SCHEMA_V1
+        || checkpoint.signature_algorithm != "ed25519"
+    {
+        bail!("unsupported ledger checkpoint contract");
+    }
+    if checkpoint.created_at > Utc::now() + chrono::Duration::minutes(5) {
+        bail!("ledger checkpoint creation time is unacceptably far in the future");
+    }
+    let (count, last_hash) = ledger_tip(path)?;
+    if count as u64 != checkpoint.entry_count || last_hash != checkpoint.last_entry_hash {
+        bail!("ledger does not match the witnessed checkpoint");
+    }
+    let payload = ledger_checkpoint_payload(
+        &checkpoint.ledger_id,
+        checkpoint.entry_count,
+        &checkpoint.last_entry_hash,
+        &checkpoint.key_id,
+        checkpoint.created_at,
+    )?;
+    if !verifier.verify_checkpoint(
+        &checkpoint.key_id,
+        checkpoint.created_at,
+        &payload,
+        &checkpoint.signature,
+    ) {
+        bail!("ledger checkpoint signature is invalid");
+    }
+    Ok(count)
+}
+
+fn validate_hash(value: &str) -> Result<()> {
+    if value.len() != 64
+        || !value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f'))
+    {
+        bail!("ledger checkpoint hash must be 64 lowercase hexadecimal digits");
+    }
+    Ok(())
+}
 
 struct LedgerLock {
     file: fs::File,
@@ -185,9 +329,82 @@ pub fn verify_ledger(path: &Path) -> Result<usize> {
     Ok(count)
 }
 
+fn ledger_tip(path: &Path) -> Result<(usize, String)> {
+    verify_ledger(path)?;
+    let content = fs::read_to_string(path)?;
+    let receipts = content
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .map(serde_json::from_str::<Receipt>)
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok((
+        receipts.len(),
+        receipts
+            .last()
+            .map(|receipt| receipt.hash.clone())
+            .unwrap_or_default(),
+    ))
+}
+
+/// Verifies both the hash chain and every typed evidence artifact against its
+/// current on-disk bytes. This is intentionally separate from chain-only
+/// verification because archived ledgers may reference artifacts not mounted
+/// on the current host.
+pub fn verify_ledger_evidence(path: &Path) -> Result<usize> {
+    let evidence_root = path.parent().unwrap_or_else(|| Path::new("."));
+    verify_ledger_evidence_with_root(path, evidence_root)
+}
+
+/// Strictly verifies typed evidence from a caller-supplied content-addressed
+/// root. Evidence paths are never interpreted relative to the process cwd.
+pub fn verify_ledger_evidence_with_root(path: &Path, evidence_root: &Path) -> Result<usize> {
+    let _lock = LedgerLock::acquire(path)?;
+    let content = fs::read_to_string(path)?;
+    let mut previous = String::new();
+    let mut count = 0;
+    for (index, line) in content
+        .lines()
+        .filter(|line| !line.trim().is_empty())
+        .enumerate()
+    {
+        let receipt: Receipt = serde_json::from_str(line)
+            .with_context(|| format!("invalid receipt at line {}", index + 1))?;
+        if receipt.previous_hash != previous
+            || receipt.hash
+                != digest(
+                    &receipt.timestamp,
+                    &receipt.operation,
+                    &receipt.subject,
+                    &receipt.status,
+                    &receipt.evidence,
+                    &receipt.previous_hash,
+                )
+        {
+            bail!("ledger chain invalid at line {}", index + 1);
+        }
+        for encoded in &receipt.evidence {
+            let artifact: EvidenceArtifact = serde_json::from_str(encoded)
+                .with_context(|| format!("receipt line {} contains untyped evidence", index + 1))?;
+            artifact
+                .read_from_store(evidence_root)
+                .with_context(|| format!("verify evidence source {}", artifact.source))?;
+        }
+        previous = receipt.hash;
+        count += 1;
+    }
+    Ok(count)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    struct AcceptSignature;
+    impl LedgerCheckpointVerifier for AcceptSignature {
+        fn verify_checkpoint(&self, _: &str, _: DateTime<Utc>, _: &[u8], signature: &str) -> bool {
+            signature == "a".repeat(128)
+        }
+    }
 
     #[test]
     fn detects_tampering() {
@@ -253,5 +470,80 @@ mod tests {
             }
         });
         assert_eq!(verify_ledger(&ledger).unwrap(), workers);
+    }
+
+    #[test]
+    fn strict_verification_detects_changed_source_content() {
+        let directory = tempfile::tempdir().unwrap();
+        let ledger = directory.path().join("receipts.jsonl");
+        let source = directory.path().join("result.json");
+        let store = directory.path().join("store");
+        fs::write(&source, b"passed").unwrap();
+        append_evidence_receipt(
+            &ledger,
+            "review",
+            "repo",
+            EvidenceStatus::Verified,
+            vec![EvidenceArtifact::store_file("test_receipt", &source, &store).unwrap()],
+        )
+        .unwrap();
+        assert_eq!(
+            verify_ledger_evidence_with_root(&ledger, &store).unwrap(),
+            1
+        );
+        let blob = store
+            .join("sha256")
+            .join(hex::encode(Sha256::digest(b"passed")));
+        fs::write(blob, b"failed").unwrap();
+        assert!(verify_ledger_evidence_with_root(&ledger, &store).is_err());
+    }
+
+    #[test]
+    fn checkpoint_detects_tail_removal_and_bad_signature() {
+        let directory = tempfile::tempdir().unwrap();
+        let ledger = directory.path().join("receipts.jsonl");
+        for subject in ["first", "second"] {
+            append_receipt(
+                &ledger,
+                "review",
+                subject,
+                EvidenceStatus::Verified,
+                vec![subject.into()],
+            )
+            .unwrap();
+        }
+        let checkpoint =
+            create_ledger_checkpoint(&ledger, "owner/repo", "key-1", "a".repeat(128)).unwrap();
+        assert_eq!(
+            verify_ledger_checkpoint(&ledger, &checkpoint, &AcceptSignature).unwrap(),
+            2
+        );
+        let mut forged = checkpoint.clone();
+        forged.signature = "forged".into();
+        assert!(verify_ledger_checkpoint(&ledger, &forged, &AcceptSignature).is_err());
+        let first = fs::read_to_string(&ledger)
+            .unwrap()
+            .lines()
+            .next()
+            .unwrap()
+            .to_owned();
+        fs::write(&ledger, format!("{first}\n")).unwrap();
+        assert!(verify_ledger_checkpoint(&ledger, &checkpoint, &AcceptSignature).is_err());
+    }
+
+    #[test]
+    fn checkpoint_creation_rejects_schema_invalid_signature() {
+        let directory = tempfile::tempdir().unwrap();
+        let ledger = directory.path().join("receipts.jsonl");
+        append_receipt(
+            &ledger,
+            "review",
+            "repo",
+            EvidenceStatus::Verified,
+            vec!["evidence".into()],
+        )
+        .unwrap();
+        assert!(create_ledger_checkpoint(&ledger, "owner/repo", "key-1", "x").is_err());
+        assert!(create_ledger_checkpoint(&ledger, "owner/repo", "key-1", "A".repeat(128)).is_err());
     }
 }

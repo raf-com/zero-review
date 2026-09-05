@@ -1,6 +1,12 @@
 # Zero and Apex review-support ecosystem
 
-The refreshable source inventory is `artifacts/ecosystem-inventory.json`; it currently records filesystem and Git facts only. Every registered root exists, but existence is classified `source_only`, not runtime-ready or integrated.
+The refreshable source inventory is `artifacts/ecosystem-inventory.json`; it records filesystem and Git facts only. Root existence is classified `source_only`, not runtime-ready or integrated. Consumers must compare a stored inventory with a fresh inventory through `ecosystem::detect_drift`, set an explicit maximum age, and fail closed on stale snapshots, missing or removed roots, path renames, duplicate canonical paths, newly registered roots, or Git HEAD drift.
+
+Discovery is bounded by explicit parent directories, name prefixes, exclusions, and a candidate ceiling in `config/ecosystem-roots.json`. Unregistered candidates are reported separately and never inherit capabilities merely from their name. Root identity includes canonical path, Git common directory, branch, HEAD, dirty state, and a SHA-256 digest of the origin URL; inventory and drift results carry configuration and snapshot digests.
+
+Adapter executables are copied into a per-run private workspace, the execution copy is SHA-256 verified, and only that verified copy is launched. Output files are created exclusively, bounded when read, and removed with cleanup errors returned to the caller. Unix permissions are restricted to the current user; Windows confidentiality still depends on the temp-directory ACL inherited from the service account.
+
+The registry-first API is `adapter::run_registered_file`; it accepts only a registry path, adapter ID, and exact allowlisted arguments. `config/adapter-registry.json` is intentionally empty until executable paths and current digests are enrolled. Windows DACL creation and process-tree Job Object containment require a Windows API dependency and remain fail-closed integration work; the current implementation rejects reparse-point executables but cannot claim those two OS controls.
 
 ## Capability topology
 

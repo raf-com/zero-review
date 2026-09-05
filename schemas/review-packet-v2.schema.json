@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.zero/schemas/zero-review/review-packet-v2.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "context", "reviewer", "disposition", "summary", "required_controls", "evidence", "reviewed_at"],
+  "properties": {
+    "schema_version": {"const": "zero-review.review-packet.v2"},
+    "context": {"$ref": "pr-context-v1.schema.json"},
+    "reviewer": {"type": "string", "minLength": 1},
+    "disposition": {"enum": ["approve", "request_changes", "abstain"]},
+    "summary": {"type": "string", "minLength": 1},
+    "required_controls": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"}},
+    "reviewed_at": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {"evidence": {
+    "type": "object", "additionalProperties": false,
+    "required": ["schema_version", "control_id", "kind", "status", "location", "sha256", "byte_length"],
+    "properties": {
+      "schema_version": {"const": "zero-review.evidence.v1"},
+      "control_id": {"type": "string", "minLength": 1},
+      "kind": {"type": "string", "minLength": 1},
+      "status": {"enum": ["verified", "partial", "blocked", "not_proven"]},
+      "location": {"type": "string", "minLength": 1},
+      "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+      "byte_length": {"type": "integer", "minimum": 0}
+    }
+  }}
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raf-com.github.io/zero-review/schemas/ed25519-keyring-v1.schema.json",
+  "title": "Zero Review Ed25519 public-key ring v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "keys"],
+  "properties": {
+    "schema_version": { "const": "zero-review.ed25519-keyring.v1" },
+    "keys": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "minLength": 1, "maxLength": 256 },
+      "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    }
+  }
+}

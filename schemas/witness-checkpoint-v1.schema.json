@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zero-review.local/schemas/witness-checkpoint-v1.schema.json",
+  "title": "Zero Review externally witnessed checkpoint envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "witness_id",
+    "witnessed_at",
+    "checkpoint",
+    "witness_receipt",
+    "verification_status"
+  ],
+  "properties": {
+    "schema_version": { "const": "zero-review.witness-checkpoint.v1" },
+    "witness_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "witnessed_at": { "type": "string", "format": "date-time" },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ledger_id", "entry_count", "last_entry_hash", "checkpoint_sha256"],
+      "properties": {
+        "ledger_id": { "type": "string", "minLength": 1 },
+        "entry_count": { "type": "integer", "minimum": 1 },
+        "last_entry_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "checkpoint_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "witness_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["media_type", "locator", "sha256"],
+      "properties": {
+        "media_type": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "locator": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "witness_key_id": { "type": ["string", "null"], "minLength": 1 },
+    "witness_signature_algorithm": { "type": ["string", "null"], "enum": ["ed25519", null] },
+    "witness_signature": { "type": ["string", "null"], "pattern": "^[0-9a-f]{128}$" },
+    "verification_status": {
+      "enum": ["not_proven", "receipt_observed", "signature_verified"]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "verification_status": { "const": "signature_verified" } } },
+      "then": {
+        "required": ["witness_key_id", "witness_signature_algorithm", "witness_signature"],
+        "properties": {
+          "witness_key_id": { "type": "string", "minLength": 1 },
+          "witness_signature_algorithm": { "const": "ed25519" },
+          "witness_signature": { "type": "string", "pattern": "^[0-9a-f]{128}$" }
+        }
+      }
+    }
+  ]
+}

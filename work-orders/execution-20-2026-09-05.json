@@ -1,0 +1,27 @@
+{
+  "schema_version":"zero-review.execution-20.v1",
+  "generated_at":"2026-09-05T00:00:00Z",
+  "dispatch_mode":"harness_native_subagents",
+  "orders":[
+    {"id":"20-01","title":"Baseline receipts","mode":"local","state":"ready"},
+    {"id":"20-02","title":"Protected evaluator SHA design","mode":"owner_gated","state":"blocked"},
+    {"id":"20-03","title":"Workflow provenance correlation","mode":"local","state":"implemented_pending_full_suite"},
+    {"id":"20-04","title":"Self-modifying evaluator adversarial tests","mode":"local","state":"ready"},
+    {"id":"20-05","title":"Canonical packet contract","mode":"local","state":"implemented_pending_full_suite"},
+    {"id":"20-06","title":"Signed packet manifest","mode":"local","state":"ready"},
+    {"id":"20-07","title":"External witness protocol","mode":"owner_gated","state":"blocked"},
+    {"id":"20-08","title":"Replay and contradiction mutation tests","mode":"local","state":"ready"},
+    {"id":"20-09","title":"Immutable release publication","mode":"owner_gated","state":"blocked"},
+    {"id":"20-10","title":"Attestation verification","mode":"local","state":"implemented_pending_release"},
+    {"id":"20-11","title":"Required-check protection readback","mode":"owner_gated","state":"blocked"},
+    {"id":"20-12","title":"Independent reviewer identity","mode":"owner_gated","state":"blocked"},
+    {"id":"20-13","title":"Apex producer identity","mode":"owner_gated","state":"blocked"},
+    {"id":"20-14","title":"Apex signed round-trip","mode":"owner_gated","state":"blocked"},
+    {"id":"20-15","title":"Pilot entry evidence","mode":"local","state":"ready"},
+    {"id":"20-16","title":"Pilot exit evidence","mode":"local","state":"ready"},
+    {"id":"20-17","title":"Operations SLO evidence","mode":"local","state":"implemented"},
+    {"id":"20-18","title":"Incident and rollback receipts","mode":"local","state":"implemented"},
+    {"id":"20-19","title":"Supply-chain reproducibility","mode":"local","state":"partial"},
+    {"id":"20-20","title":"Adoption capability profiles","mode":"local","state":"ready"}
+  ]
+}

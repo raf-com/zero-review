@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raf-com.github.io/zero-review/schemas/applicability-v1.schema.json",
+  "title": "Zero Review applicability route v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["changed_paths", "review_needs", "path_applicability"],
+  "properties": {
+    "changed_paths": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "review_needs": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+    "path_applicability": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "review_needs"],
+        "properties": {
+          "path": { "type": "string", "minLength": 1 },
+          "review_needs": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

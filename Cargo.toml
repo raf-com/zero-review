@@ -1,6 +1,6 @@
 [package]
 name = "zero-review"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.85"
 description = "Evidence-first code-review control plane for zero and Apex infrastructure"
@@ -19,12 +19,14 @@ path = "src/main.rs"
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive"] }
+ed25519-dalek = "3.0.0"
 hex = "0.4"
 fs2 = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
+tempfile = "3"
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time"] }
 walkdir = "2"
@@ -32,7 +34,6 @@ walkdir = "2"
 [dev-dependencies]
 assert_cmd = "2"
 predicates = "3"
-tempfile = "3"
 
 [lints.rust]
 unsafe_code = "forbid"

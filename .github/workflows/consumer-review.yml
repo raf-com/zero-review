@@ -1,0 +1,188 @@
+name: zero-review-consumer
+
+on:
+  workflow_call:
+    inputs:
+      repository:
+        description: Repository identity in owner/name form.
+        required: true
+        type: string
+      pull_request_number:
+        description: Pull request number supplied by the trusted caller context.
+        required: true
+        type: number
+      base_sha:
+        description: Full base commit SHA supplied by the trusted caller context.
+        required: true
+        type: string
+      head_sha:
+        description: Full head commit SHA supplied by the trusted caller context.
+        required: true
+        type: string
+      tool_asset_url:
+        description: Immutable GitHub release-asset URL for the zero-review executable.
+        required: true
+        type: string
+      tool_asset_sha256:
+        description: Expected lowercase SHA-256 digest of the zero-review executable.
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: zero-review-consumer-${{ inputs.repository }}-${{ inputs.pull_request_number }}-${{ inputs.head_sha }}
+  cancel-in-progress: true
+
+jobs:
+  consumer:
+    name: zero-review / consumer
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Bind requested identity to caller event
+        shell: bash
+        env:
+          EXPECTED_REPOSITORY: ${{ inputs.repository }}
+          EXPECTED_PR: ${{ inputs.pull_request_number }}
+          EXPECTED_BASE_SHA: ${{ inputs.base_sha }}
+          EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
+          EVENT_REPOSITORY: ${{ github.event.repository.full_name }}
+          EVENT_PR: ${{ github.event.pull_request.number }}
+          EVENT_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          EVENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$EVENT_PR" && test -n "$EVENT_BASE_SHA" && test -n "$EVENT_HEAD_SHA"
+          [[ "$EXPECTED_REPOSITORY" == "$EVENT_REPOSITORY" ]]
+          [[ "$EXPECTED_PR" == "$EVENT_PR" ]]
+          [[ "$EXPECTED_BASE_SHA" == "$EVENT_BASE_SHA" ]]
+          [[ "$EXPECTED_HEAD_SHA" == "$EVENT_HEAD_SHA" ]]
+
+      # A reusable workflow otherwise checks out the caller repository and ref by
+      # default. Pin the tooling checkout to the exact commit containing this
+      # called workflow; never fetch or execute the pull-request head.
+      - name: Checkout trusted consumer implementation
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: raf-com/zero-review
+          ref: 4f8037cb287512079750968909771562200f9103
+          path: zero-review-tooling
+          persist-credentials: false
+
+      - name: Validate immutable tool identity
+        shell: bash
+        env:
+          TOOL_ASSET_URL: ${{ inputs.tool_asset_url }}
+          TOOL_ASSET_SHA256: ${{ inputs.tool_asset_sha256 }}
+          TRUSTED_TOOLING_SHA: 4f8037cb287512079750968909771562200f9103
+        run: |
+          set -euo pipefail
+          [[ "$TOOL_ASSET_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
+            echo 'tool_asset_sha256 must be a lowercase SHA-256 digest' >&2
+            exit 1
+          }
+          [[ "$TRUSTED_TOOLING_SHA" =~ ^[0-9a-f]{40}$ ]] || {
+            echo 'trusted tooling SHA must be a lowercase full commit SHA' >&2
+            exit 1
+          }
+          grep -Fxq "$TRUSTED_TOOLING_SHA" zero-review-tooling/config/trusted-tooling-shas.txt || {
+            echo 'called workflow SHA is not an approved protected tooling revision' >&2
+            exit 1
+          }
+          [[ "$TOOL_ASSET_URL" =~ ^https://github\.com/raf-com/zero-review/releases/download/v[0-9]+\.[0-9]+\.[0-9]+/zero-review-linux-x86_64$ ]] || {
+            echo 'tool_asset_url must identify an immutable versioned zero-review release asset' >&2
+            exit 1
+          }
+          version="${TOOL_ASSET_URL#*/releases/download/}"
+          version="${version%%/*}"
+          pin="zero-review-tooling/config/release-pins/${version}.sha256"
+          test -f "$pin" || {
+            echo 'approved release digest pin is unavailable in trusted tooling' >&2
+            exit 1
+          }
+          [[ "$(tr -d '[:space:]' < "$pin")" == "$TOOL_ASSET_SHA256" ]] || {
+            echo 'caller digest does not match the approved trusted-tooling pin' >&2
+            exit 1
+          }
+
+      - name: Download and verify zero-review executable
+        shell: bash
+        env:
+          TOOL_ASSET_URL: ${{ inputs.tool_asset_url }}
+          TOOL_ASSET_SHA256: ${{ inputs.tool_asset_sha256 }}
+        run: |
+          set -euo pipefail
+          mkdir -p receipts/bin
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            --connect-timeout 15 --max-time 120 --max-filesize 52428800 \
+            --output receipts/bin/zero-review "$TOOL_ASSET_URL"
+          printf '%s  %s\n' "$TOOL_ASSET_SHA256" receipts/bin/zero-review | sha256sum --check --strict
+          chmod 0555 receipts/bin/zero-review
+
+      - name: Collect trusted GitHub state
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPECTED_REPOSITORY: ${{ inputs.repository }}
+          EXPECTED_PR: ${{ inputs.pull_request_number }}
+          EXPECTED_BASE_SHA: ${{ inputs.base_sha }}
+          EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
+        run: |
+          set -euo pipefail
+          test -f zero-review-tooling/scripts/github_collect.py || {
+            echo 'trusted GitHub collector contract is unavailable' >&2
+            exit 1
+          }
+          python zero-review-tooling/scripts/github_collect.py \
+            --repository "$EXPECTED_REPOSITORY" \
+            --pull-request-number "$EXPECTED_PR" \
+            --base-sha "$EXPECTED_BASE_SHA" \
+            --head-sha "$EXPECTED_HEAD_SHA" \
+            --out receipts/github-snapshot.json
+
+      - name: Evaluate snapshot
+        shell: bash
+        env:
+          EXPECTED_REPOSITORY: ${{ inputs.repository }}
+          EXPECTED_PR: ${{ inputs.pull_request_number }}
+          EXPECTED_BASE_SHA: ${{ inputs.base_sha }}
+          EXPECTED_HEAD_SHA: ${{ inputs.head_sha }}
+        run: |
+          set -euo pipefail
+          test -f zero-review-tooling/scripts/github_consumer.py || {
+            echo 'trusted GitHub evaluator contract is unavailable' >&2
+            exit 1
+          }
+          map="zero-review-tooling/config/consumer-maps/${EXPECTED_REPOSITORY//\//-}.json"
+          test -f "$map" || {
+            echo 'trusted control-map contract is unavailable' >&2
+            exit 1
+          }
+          python zero-review-tooling/scripts/github_consumer.py \
+            --snapshot receipts/github-snapshot.json \
+            --control-map "$map" \
+            --repository "$EXPECTED_REPOSITORY" \
+            --pull-request-number "$EXPECTED_PR" \
+            --base-sha "$EXPECTED_BASE_SHA" \
+            --head-sha "$EXPECTED_HEAD_SHA" \
+            --out receipts/review-packet.json
+          receipts/bin/zero-review validate-review-packet \
+            --input receipts/review-packet.json \
+            --repository "$EXPECTED_REPOSITORY" \
+            --pull-request-number "$EXPECTED_PR" \
+            --base-sha "$EXPECTED_BASE_SHA" \
+            --head-sha "$EXPECTED_HEAD_SHA"
+
+      - name: Retain consumer receipts
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: zero-review-consumer-${{ inputs.pull_request_number }}-${{ inputs.head_sha }}
+          path: receipts/
+          if-no-files-found: error
+          retention-days: 90

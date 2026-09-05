@@ -2,5 +2,8 @@
 /target-*/
 /.target-verify/
 /artifacts/
+/dist/
 /contract-tests/apex-compat/target/
 /.local/
+__pycache__/
+*.py[cod]

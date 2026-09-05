@@ -48,7 +48,12 @@ jobs:
         with:
           name: zero-review-windows-x86_64
           path: |
-            dist/*
+            dist/zero-review-windows-x86_64.exe
+            dist/zero-review-windows-x86_64.exe.sha256
+            dist/zero-review-windows-x86_64.zip
+            dist/zero-review-windows-x86_64.zip.sha256
+            dist/zero-review-windows-x86_64.manifest.json
+            dist/zero-review-windows-x86_64.manifest.json.sha256
           if-no-files-found: error
           retention-days: 90
 
@@ -79,7 +84,7 @@ jobs:
           cp "$root/release-manifest.json" dist/zero-review-linux-x86_64.manifest.json
           (cd dist && sha256sum zero-review-linux-x86_64 > zero-review-linux-x86_64.sha256)
           (cd dist && sha256sum zero-review-linux-x86_64.manifest.json > zero-review-linux-x86_64.manifest.json.sha256)
-          tar -C dist -czf dist/zero-review-linux-x86_64.tar.gz zero-review-linux-x86_64-bundle
+          (cd dist && tar -czf zero-review-linux-x86_64.tar.gz zero-review-linux-x86_64-bundle)
           (cd dist && sha256sum zero-review-linux-x86_64.tar.gz > zero-review-linux-x86_64.tar.gz.sha256)
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
@@ -110,7 +115,9 @@ jobs:
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: zero-review-sbom
-          path: dist/*
+          path: |
+            dist/zero-review.cdx.json
+            dist/zero-review.cdx.json.sha256
           if-no-files-found: error
           retention-days: 90
 

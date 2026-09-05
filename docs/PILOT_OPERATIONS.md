@@ -41,3 +41,11 @@ The envelope does not prove that the witness is independent, that the locator re
 ## Pilot exit review
 
 After 30 days of real, reconstructable observations, review the objectives in `OPERATIONS_POLICY.md`. A decision must report the window, sample counts, exclusions, source receipt set, and all blocked or not-proven causes. No objective passes solely because an aggregate conforms to its schema.
+
+## Entry and exit checklist
+
+Pilot entry is a gate, not a calendar date. The packet must contain the exact repository, base and head commit, enrolled adapters, control set, observation window, retention location, rollback owner, and a successful local deterministic test receipt. Hosted workflow status and branch-protection readback are separate entry receipts; a local pass cannot substitute for either.
+
+Exit requires a canonical aggregate plus the raw receipt index, hash verification results, excluded-event list, incident list, and an explicit disposition for every objective: `pass`, `partial`, `blocked`, or `not_proven`. An objective is `blocked` when a required dependency was unavailable; it is `not_proven` when evidence exists but cannot establish completeness, independence, or authenticity. The exit reviewer records the decision and reviewer identity separately from the system-generated packet. No exit decision authorizes release, deployment, or Apex submission.
+
+Minimum incident evidence includes detection timestamp, affected control or adapter, first known bad revision, last known good revision, scope, containment action, preserved receipt hashes, recovery verification, and owner disposition. Rollback evidence must identify the restored attested digest and must not mutate an existing release.

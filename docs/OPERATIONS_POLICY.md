@@ -39,3 +39,9 @@ Initial objectives, reviewed after 30 days of real observations:
 - Unavailable adapter or Apex: fail closed for required controls; Apex outage does not prevent local evidence generation but prevents an Apex round-trip claim.
 - GitHub outage: do not merge through a bypass. Retain local evidence and rerun hosted checks after service restoration.
 - Faulty Zero Review release: remove it from consumer configuration, restore the last attested digest, and open a reviewed corrective release. Never mutate an existing release.
+
+## Observability evidence
+
+The operational dashboard and incident packet must preserve both measurements and their provenance. At minimum, record review evaluation latency (p50/p95), queue latency, adapter attempts and terminal outcomes, stale-head detections, replay detections, override requests and dispositions, blocked/not-proven causes, and evidence-age at decision time. Every value is bound to a UTC window, repository, head SHA, and source-receipt index; dashboards are summaries and are never the sole audit record.
+
+Alert evidence must include alert name, threshold, first/last observation, affected adapter or control, notification attempt, acknowledgement, and resolution receipt. For outages, retain the failed probe and the recovery probe with timestamps. For rollback, retain the pre-rollback failure packet, restored attested digest, command/actor receipt, and post-rollback verification. Apex health or queue probes are advisory only: they do not prove authenticated submission, dispatchability, or runtime SLO compliance.

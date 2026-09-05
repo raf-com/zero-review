@@ -269,6 +269,8 @@ pub enum ContractError {
     MissingEvidence,
     #[error("required controls must be unique, non-empty, and covered by evidence")]
     MissingRequiredControl,
+    #[error("evidence control identifiers must be unique")]
+    DuplicateEvidenceControl,
     #[error("review timestamp is stale or inconsistent with the captured context")]
     StaleReview,
     #[error("approval disposition requires verified evidence for every control")]
@@ -351,6 +353,10 @@ impl ReviewPacket {
             self.reviewed_at,
             v.maximum_review_age,
         )?;
+        let evidence_controls: HashSet<_> = self.evidence.iter().map(|e| &e.control_id).collect();
+        if evidence_controls.len() != self.evidence.len() {
+            return Err(ContractError::DuplicateEvidenceControl);
+        }
         let unique: HashSet<_> = self.required_controls.iter().collect();
         if self.required_controls.is_empty()
             || unique.len() != self.required_controls.len()
@@ -382,6 +388,20 @@ impl ReviewPacket {
             _ => {}
         }
         Ok(())
+    }
+
+    /// Returns the deterministic JSON bytes used to identify this packet.
+    /// The signature/manifest layer can sign this digest without relying on
+    /// filesystem ordering or pretty-printing choices.
+    pub fn canonical_json(&self) -> Result<String, serde_json::Error> {
+        serde_json::to_string(self)
+    }
+
+    pub fn content_digest(&self) -> Result<String, serde_json::Error> {
+        Ok(format!(
+            "sha256:{}",
+            hex::encode(Sha256::digest(self.canonical_json()?.as_bytes()))
+        ))
     }
     pub fn validate_bound(
         &self,
@@ -703,6 +723,26 @@ mod tests {
         assert_eq!(
             p.validate(&validation()),
             Err(ContractError::MissingRequiredControl)
+        );
+    }
+
+    #[test]
+    fn packet_digest_is_stable_and_changes_on_content_mutation() {
+        let original = packet();
+        let first = original.content_digest().unwrap();
+        assert_eq!(first, original.content_digest().unwrap());
+        let mut changed = original;
+        changed.summary.push_str(" changed");
+        assert_ne!(first, changed.content_digest().unwrap());
+    }
+
+    #[test]
+    fn packet_rejects_duplicate_evidence_controls() {
+        let mut p = packet();
+        p.evidence.push(p.evidence[0].clone());
+        assert_eq!(
+            p.validate(&validation()),
+            Err(ContractError::DuplicateEvidenceControl)
         );
     }
     #[test]

@@ -1,0 +1,12 @@
+{
+  "schema_version": "zero-review.execution-work-orders.v1",
+  "generated_at": "2026-09-05T00:00:00Z",
+  "dispatch_mode": "harness_native_subagents",
+  "orders": [
+    {"id":"ZR-R1-001","title":"Protected workflow provenance hardening","owner_surface":"scripts/github_collect.py, scripts/github_consumer.py, tests/","acceptance":["Preserve run/workflow identity per check","Reject conflicting same-path definitions","Add adversarial fixtures without network access","Run focused tests and report receipts"],"blocked_by":["protected baseline SHA availability"]},
+    {"id":"ZR-R1-002","title":"Release provenance and attestation audit","owner_surface":".github/workflows/release.yml, docs/GITHUB_INTEGRATION.md","acceptance":["Audit signer/source/ref constraints","Validate explicit subject list against packaging outputs","Add only safe static tests or documentation","Do not create tags/releases"],"blocked_by":["release authority"]},
+    {"id":"ZR-R2-001","title":"Review packet and schema gap audit","owner_surface":"schemas/, src/contracts.rs, src/evidence.rs, work-orders/","acceptance":["Map roadmap needs to schema coverage","Identify missing fields and compatibility risks","Propose bounded patches with tests","Mark owner-gated items explicitly"]},
+    {"id":"ZR-R5-001","title":"Apex integration boundary audit","owner_surface":"src/apex.rs, docs/ROADMAP.md, docs/OPERATIONS_POLICY.md","acceptance":["Inspect local Apex adapter boundaries","Document required identity/signing/replay evidence","Probe only safe local health endpoints if available","No credential reads or dispatch"]},
+    {"id":"ZR-R6-001","title":"Operations and adoption readiness","owner_surface":"docs/, work-orders/","acceptance":["Draft measurable SLO and incident evidence requirements","Define pilot entry/exit gates","Separate source/local/hosted/runtime proof","No production-readiness claim without receipts"]}
+  ]
+}

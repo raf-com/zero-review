@@ -129,7 +129,21 @@ jobs:
           merge-multiple: true
       - uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
         with:
-          subject-path: dist/*
+          subject-path: |
+            dist/zero-review-windows-x86_64.exe
+            dist/zero-review-windows-x86_64.exe.sha256
+            dist/zero-review-windows-x86_64.zip
+            dist/zero-review-windows-x86_64.zip.sha256
+            dist/zero-review-windows-x86_64.manifest.json
+            dist/zero-review-windows-x86_64.manifest.json.sha256
+            dist/zero-review-linux-x86_64
+            dist/zero-review-linux-x86_64.sha256
+            dist/zero-review-linux-x86_64.tar.gz
+            dist/zero-review-linux-x86_64.tar.gz.sha256
+            dist/zero-review-linux-x86_64.manifest.json
+            dist/zero-review-linux-x86_64.manifest.json.sha256
+            dist/zero-review.cdx.json
+            dist/zero-review.cdx.json.sha256
       - shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

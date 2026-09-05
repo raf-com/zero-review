@@ -35,6 +35,20 @@ Initial objectives, reviewed after 30 days of real observations:
 
 ## Incident and rollback
 
+Operational work orders 20-17 and 20-18 must emit two linked artifacts: a
+measurement receipt and an incident/rollback receipt. The measurement receipt
+contains the UTC interval, exact repository/head SHA, source receipt index,
+sample counts, and calculation version. The incident receipt contains the
+incident identifier, detection and recovery timestamps, affected control,
+first-known-bad and last-known-good revisions, containment actor, preserved
+receipt hashes, and owner disposition. A rollback is not complete until a
+post-rollback verification receipt confirms the restored attested digest.
+
+These artifacts are append-only. Corrections create a superseding receipt
+that references the prior receipt; they must not rewrite historical evidence.
+Missing, stale, or unverifiable artifacts produce `blocked` or `not_proven`,
+never an inferred healthy or recovered state.
+
 - Compromised signing key: revoke the key, stop submission, preserve evidence, rotate credentials, and reissue only evidence that can be independently reproduced.
 - Unavailable adapter or Apex: fail closed for required controls; Apex outage does not prevent local evidence generation but prevents an Apex round-trip claim.
 - GitHub outage: do not merge through a bypass. Retain local evidence and rerun hosted checks after service restoration.

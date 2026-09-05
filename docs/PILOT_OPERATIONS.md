@@ -44,6 +44,38 @@ After 30 days of real, reconstructable observations, review the objectives in `O
 
 ## Entry and exit checklist
 
+The following checklist is the acceptance contract for work orders 20-15 and
+20-16. Each line must point to a content-addressed receipt (or explicitly be
+marked `blocked`/`not_proven`); a checkbox or prose assertion is not evidence.
+
+### Entry packet (`pilot-entry-v1`)
+
+| Item | Required evidence | Fail-closed condition |
+| --- | --- | --- |
+| Identity | repository, base SHA, head SHA, generated-at UTC | any missing or non-40-character SHA |
+| Scope | named controls, adapters, exclusions, observation window | scope differs between packet and source receipts |
+| Safety | rollback owner, retention location, expiry/cleanup policy | no named owner or retention location |
+| Determinism | local test receipt bound to the exact head SHA | receipt is stale, malformed, or head-mismatched |
+| Hosted boundary | successful hosted run and current protection readback | either receipt is absent or stale |
+
+Entry is `pass` only when all rows have verified receipts. Otherwise the
+pilot remains `blocked` or `not_proven` and observation counts must not be
+reported as production results.
+
+### Exit packet (`pilot-exit-v1`)
+
+| Item | Required evidence | Fail-closed condition |
+| --- | --- | --- |
+| Completeness | closed UTC window and raw receipt index | window is open or a source receipt is missing |
+| Integrity | reopened SHA-256 verification with duplicate rejection | any hash mismatch, duplicate, or malformed receipt |
+| Outcomes | aggregate counts reconstructable from raw receipts | aggregate cannot be independently recomputed |
+| Exceptions | excluded-event list, incidents, blocked/not-proven causes | unexplained exclusion or cause-count mismatch |
+| Review | explicit disposition per objective and reviewer identity | system-generated output is treated as human review |
+
+Exit is `pass` only when every objective has a supported disposition and all
+exceptions are accounted for. Exit never authorizes release, deployment, or
+Apex submission.
+
 Pilot entry is a gate, not a calendar date. The packet must contain the exact repository, base and head commit, enrolled adapters, control set, observation window, retention location, rollback owner, and a successful local deterministic test receipt. Hosted workflow status and branch-protection readback are separate entry receipts; a local pass cannot substitute for either.
 
 Exit requires a canonical aggregate plus the raw receipt index, hash verification results, excluded-event list, incident list, and an explicit disposition for every objective: `pass`, `partial`, `blocked`, or `not_proven`. An objective is `blocked` when a required dependency was unavailable; it is `not_proven` when evidence exists but cannot establish completeness, independence, or authenticity. The exit reviewer records the decision and reviewer identity separately from the system-generated packet. No exit decision authorizes release, deployment, or Apex submission.

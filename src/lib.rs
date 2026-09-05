@@ -22,7 +22,7 @@ pub use contracts::{
     LegacyReviewEvidenceV1, LegacyReviewEvidenceV2, LegacyReviewOverrideV1, LegacyReviewPacketV1,
     LegacyReviewPacketV2, NonceConsume, NonceStoreError, OVERRIDE_SCHEMA_V2, OverrideNonceStore,
     OverrideSignatureVerifier, PullRequestContext, REVIEW_EVIDENCE_SCHEMA_V2,
-    REVIEW_PACKET_SCHEMA_V2, REVIEW_PACKET_SCHEMA_V3, ReviewDisposition, ReviewEvidence,
+    PACKET_MANIFEST_SCHEMA_V1, PacketManifest, REVIEW_PACKET_SCHEMA_V2, REVIEW_PACKET_SCHEMA_V3, ReviewDisposition, ReviewEvidence,
     ReviewEvidenceStatus, ReviewOverride, ReviewPacket, ValidationContext,
 };
 pub use ecosystem::{

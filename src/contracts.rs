@@ -16,6 +16,50 @@ pub const REVIEW_PACKET_SCHEMA_V2: &str = "zero-review.review-packet.v2";
 pub const OVERRIDE_SCHEMA_V2: &str = "zero-review.override.v2";
 pub const REVIEW_PACKET_SCHEMA_V3: &str = "zero-review.review-packet.v3";
 pub const REVIEW_EVIDENCE_SCHEMA_V2: &str = "zero-review.evidence.v2";
+pub const PACKET_MANIFEST_SCHEMA_V1: &str = "zero-review.packet-manifest.v1";
+
+/// A signed, content-addressed envelope for a review packet. Signature
+/// verification is deliberately provided by the caller/keyring; this type
+/// only defines and validates the bytes that must be signed.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct PacketManifest {
+    pub schema_version: String,
+    pub packet_digest: String,
+    pub repository: String,
+    pub pull_request_number: u64,
+    pub base_sha: String,
+    pub head_sha: String,
+    pub signer_key_id: String,
+    pub signature_algorithm: String,
+    pub signature: String,
+    pub signed_at: DateTime<Utc>,
+}
+
+impl PacketManifest {
+    pub fn signing_payload(&self) -> Result<Vec<u8>, serde_json::Error> {
+        let mut unsigned = self.clone();
+        unsigned.signature.clear();
+        serde_json::to_vec(&unsigned)
+    }
+
+    pub fn validate(&self) -> Result<(), ContractError> {
+        version("packet manifest", &self.schema_version, PACKET_MANIFEST_SCHEMA_V1)?;
+        let digest = self.packet_digest.strip_prefix("sha256:").unwrap_or_default();
+        if digest.len() != 64 || !digest.bytes().all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase()) {
+            return Err(ContractError::InvalidDigest { field: "packet_digest" });
+        }
+        text("repository", &self.repository)?;
+        if self.pull_request_number == 0 { return Err(ContractError::MissingField { field: "pull_request_number" }); }
+        sha("base_sha", &self.base_sha)?;
+        sha("head_sha", &self.head_sha)?;
+        if self.base_sha.eq_ignore_ascii_case(&self.head_sha) { return Err(ContractError::IdenticalBaseAndHead); }
+        text("signer_key_id", &self.signer_key_id)?;
+        text("signature_algorithm", &self.signature_algorithm)?;
+        text("signature", &self.signature)?;
+        Ok(())
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
@@ -289,6 +333,8 @@ pub enum ContractError {
     NonceStoreFailure,
     #[error("review contract does not match the expected repository, PR, base, and head identity")]
     PrIdentityMismatch,
+    #[error("{field} must be a sha256 digest")]
+    InvalidDigest { field: &'static str },
 }
 
 impl PullRequestContext {
@@ -734,6 +780,35 @@ mod tests {
         let mut changed = original;
         changed.summary.push_str(" changed");
         assert_ne!(first, changed.content_digest().unwrap());
+    }
+
+    #[test]
+    fn packet_manifest_validates_and_signing_payload_excludes_signature() {
+        let manifest = PacketManifest {
+            schema_version: PACKET_MANIFEST_SCHEMA_V1.into(),
+            packet_digest: format!("sha256:{}", "a".repeat(64)),
+            repository: "owner/repo".into(), pull_request_number: 42,
+            base_sha: "b".repeat(40), head_sha: "c".repeat(40),
+            signer_key_id: "release-key".into(), signature_algorithm: "ed25519".into(),
+            signature: "deadbeef".into(), signed_at: Utc::now(),
+        };
+        manifest.validate().unwrap();
+        let payload = String::from_utf8(manifest.signing_payload().unwrap()).unwrap();
+        assert!(!payload.contains("deadbeef"));
+        assert!(payload.contains("release-key"));
+    }
+
+    #[test]
+    fn packet_manifest_rejects_malformed_digest() {
+        let mut manifest = PacketManifest {
+            schema_version: PACKET_MANIFEST_SCHEMA_V1.into(), packet_digest: "sha256:bad".into(),
+            repository: "owner/repo".into(), pull_request_number: 1,
+            base_sha: "a".repeat(40), head_sha: "b".repeat(40), signer_key_id: "k".into(),
+            signature_algorithm: "ed25519".into(), signature: "s".into(), signed_at: Utc::now(),
+        };
+        assert!(matches!(manifest.validate(), Err(ContractError::InvalidDigest { .. })));
+        manifest.packet_digest = format!("sha256:{}", "A".repeat(64));
+        assert!(manifest.validate().is_err());
     }
 
     #[test]

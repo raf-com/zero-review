@@ -144,6 +144,32 @@ jobs:
             dist/zero-review-linux-x86_64.manifest.json.sha256
             dist/zero-review.cdx.json
             dist/zero-review.cdx.json.sha256
+      - name: Verify artifact attestations
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for subject in \
+            dist/zero-review-windows-x86_64.exe \
+            dist/zero-review-windows-x86_64.exe.sha256 \
+            dist/zero-review-windows-x86_64.zip \
+            dist/zero-review-windows-x86_64.zip.sha256 \
+            dist/zero-review-windows-x86_64.manifest.json \
+            dist/zero-review-windows-x86_64.manifest.json.sha256 \
+            dist/zero-review-linux-x86_64 \
+            dist/zero-review-linux-x86_64.sha256 \
+            dist/zero-review-linux-x86_64.tar.gz \
+            dist/zero-review-linux-x86_64.tar.gz.sha256 \
+            dist/zero-review-linux-x86_64.manifest.json \
+            dist/zero-review-linux-x86_64.manifest.json.sha256 \
+            dist/zero-review.cdx.json \
+            dist/zero-review.cdx.json.sha256; do
+            gh attestation verify "$subject" \
+              --repo raf-com/zero-review \
+              --signer-workflow raf-com/zero-review/.github/workflows/release.yml \
+              --source-ref "refs/tags/${{ github.ref_name }}"
+          done
       - shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

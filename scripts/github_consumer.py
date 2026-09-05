@@ -198,6 +198,11 @@ def evaluate_snapshot(
             if len(matches) != 1:
                 raise ConsumerError(f"{control}: trusted check identity must occur exactly once")
             check = matches[0]
+            definition_sha = check.get("workflow_definition_sha")
+            if not isinstance(definition_sha, str) or len(definition_sha) != 40 or any(
+                character not in "0123456789abcdefABCDEF" for character in definition_sha
+            ):
+                raise ConsumerError(f"{control}: workflow definition provenance is missing or invalid")
             if check.get("head_sha") != pr["head_sha"] or check.get("status") != "completed" or check.get("conclusion") != "success":
                 raise ConsumerError(f"{control}: trusted check is not a current-head success")
     reviewer = select_approval(snapshot, pr["head_sha"], author["id"])

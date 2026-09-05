@@ -20,7 +20,7 @@ def snapshot():
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "pull_request": {"number": 7, "state": "open", "author": {"id": 1, "login": "author"}, "base_sha": "a" * 40, "head_sha": head, "changed_files": 1},
         "files": [{"filename": "src/lib.rs"}],
-        "checks": [{"name": "tests / unit", "app": {"slug": "github-actions"}, "workflow_path": ".github/workflows/tests.yml", "event": "pull_request", "head_sha": head, "status": "completed", "conclusion": "success"}],
+        "checks": [{"name": "tests / unit", "app": {"slug": "github-actions"}, "workflow_path": ".github/workflows/tests.yml", "event": "pull_request", "workflow_definition_sha": "c" * 40, "head_sha": head, "status": "completed", "conclusion": "success"}],
         "reviews": [{"id": 9, "state": "APPROVED", "submitted_at": datetime.now(timezone.utc).isoformat(), "commit_id": head, "user": {"id": 2, "login": "reviewer", "type": "User"}}],
         "permissions": {"2": "push"},
     }

@@ -240,6 +240,14 @@ class ConsumerTests(unittest.TestCase):
                 with self.assertRaisesRegex(consumer.ConsumerError, "workflow definition provenance"):
                     self.evaluate(candidate)
 
+    def test_rejects_conflicting_provenance_for_same_check_identity(self):
+        candidate = snapshot()
+        candidate["checks"].append({**candidate["checks"][0], "workflow_run_id": 22, "workflow_id": 8, "workflow_definition_sha": "d" * 40})
+        candidate["checks"][0]["workflow_run_id"] = 21
+        candidate["checks"][0]["workflow_id"] = 8
+        with self.assertRaisesRegex(consumer.ConsumerError, "conflicting workflow provenance"):
+            self.evaluate(candidate)
+
     def test_rejects_invalid_author_and_identical_shas(self):
         value = snapshot()
         value["pull_request"]["author"]["login"] = " "

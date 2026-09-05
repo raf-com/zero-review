@@ -178,9 +178,15 @@ def evaluate_snapshot(
     checks = snapshot.get("checks")
     if not isinstance(checks, list):
         raise ConsumerError("checks must be an array")
+    check_provenance: dict[tuple[object, object, object, object], tuple[object, object, object, object, object]] = {}
     for check in checks:
         if not isinstance(check, dict) or not isinstance(check.get("app"), dict):
             raise ConsumerError("check entry is malformed")
+        identity = (check.get("name"), check.get("app", {}).get("slug"), check.get("workflow_path"), check.get("event"))
+        provenance = (check.get("workflow_run_id"), check.get("workflow_id"), check.get("workflow_path"), check.get("event"), check.get("workflow_definition_sha"))
+        if identity in check_provenance and check_provenance[identity] != provenance:
+            raise ConsumerError("check identity has conflicting workflow provenance")
+        check_provenance[identity] = provenance
     permissions = snapshot.get("permissions")
     if not isinstance(permissions, dict) or any(
         not isinstance(key, str) or not isinstance(value, str) for key, value in permissions.items()

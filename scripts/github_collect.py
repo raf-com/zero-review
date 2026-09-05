@@ -207,7 +207,8 @@ def collect(args: argparse.Namespace) -> dict:
     if len(runs) > MAX_WORKFLOW_RUNS:
         raise CollectError("too many workflow runs to correlate safely")
 
-    job_to_run: dict[int, tuple[int, int | None, str, str, str]] = {}
+    job_to_run: dict[int, tuple[int, int, str, str, str]] = {}
+    workflow_definitions: dict[str, str] = {}
     for run in runs:
         run_id = run.get("id")
         workflow_id = run.get("workflow_id")
@@ -224,8 +225,12 @@ def collect(args: argparse.Namespace) -> dict:
             raise CollectError("workflow definition content SHA is missing or invalid")
         if definition.get("path") != path:
             raise CollectError("workflow definition path does not match workflow run")
-        if workflow_id is not None and not isinstance(workflow_id, int):
-            raise CollectError("workflow run workflow_id is malformed")
+        if not isinstance(workflow_id, int) or workflow_id <= 0:
+            raise CollectError("workflow run workflow_id is missing or malformed")
+        prior_definition = workflow_definitions.get(path)
+        if prior_definition is not None and prior_definition != definition_sha.lower():
+            raise CollectError("workflow path has conflicting definition provenance")
+        workflow_definitions[path] = definition_sha.lower()
         for job in client.paginated(f"{repo_path}/actions/runs/{run_id}/jobs", "jobs"):
             check_url = job.get("check_run_url")
             match = re.search(r"/check-runs/(\d+)$", check_url or "")

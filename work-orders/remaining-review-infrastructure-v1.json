@@ -15,7 +15,8 @@
       "acceptance": [
         "Collect PR identity, fully paginated files, check runs, workflow runs, reviews, and collaborator permissions using read-only APIs",
         "Bind repository, PR, base, and head to trusted workflow inputs and re-fetch before emission",
-        "Reject API truncation, rate limiting, ambiguity, and head movement"
+        "Reject API truncation, rate limiting, ambiguity, and head movement",
+        "Require protected workflow-definition provenance for every check identity; supplied path/event/App fields alone remain not_proven"
       ]
     },
     {

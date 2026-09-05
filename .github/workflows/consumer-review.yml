@@ -70,7 +70,7 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: raf-com/zero-review
-          ref: ${{ github.workflow_sha }}
+          ref: 4f8037cb287512079750968909771562200f9103
           path: zero-review-tooling
           persist-credentials: false
 
@@ -79,8 +79,7 @@ jobs:
         env:
           TOOL_ASSET_URL: ${{ inputs.tool_asset_url }}
           TOOL_ASSET_SHA256: ${{ inputs.tool_asset_sha256 }}
-          TRUSTED_TOOLING_SHA: ${{ github.workflow_sha }}
-          CALLED_WORKFLOW_REF: ${{ github.workflow_ref }}
+          TRUSTED_TOOLING_SHA: 4f8037cb287512079750968909771562200f9103
         run: |
           set -euo pipefail
           [[ "$TOOL_ASSET_SHA256" =~ ^[0-9a-f]{64}$ ]] || {
@@ -88,11 +87,7 @@ jobs:
             exit 1
           }
           [[ "$TRUSTED_TOOLING_SHA" =~ ^[0-9a-f]{40}$ ]] || {
-            echo 'workflow_sha must be a lowercase full commit SHA' >&2
-            exit 1
-          }
-          [[ "$CALLED_WORKFLOW_REF" == *@"$TRUSTED_TOOLING_SHA" ]] || {
-            echo 'workflow_sha must equal the commit of the called reusable workflow' >&2
+            echo 'trusted tooling SHA must be a lowercase full commit SHA' >&2
             exit 1
           }
           grep -Fxq "$TRUSTED_TOOLING_SHA" zero-review-tooling/config/trusted-tooling-shas.txt || {

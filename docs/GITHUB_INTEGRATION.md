@@ -12,9 +12,10 @@ latest independent head-bound approval. Missing mappings, incomplete checks, sta
 approvals, duplicate trusted check identities, and blocking findings fail closed.
 
 Consumers must invoke this workflow by full commit SHA from an approved protected
-revision. They must not pass a caller-selected tooling SHA. The called workflow
-derives `github.workflow_sha` and accepts it only when it appears in the trusted
-tooling allowlist; an unapproved branch, tag, or fork therefore fails closed.
+revision. They must not pass a caller-selected tooling SHA. Because GitHub's
+`github` context in a reusable workflow belongs to the caller, tooling checkout
+must use an explicit protected commit from the repository's allowlist rather than
+`github.workflow_sha`; an unapproved branch, tag, or fork therefore fails closed.
 
 The current consumer polls boundedly because its prerequisite workflow graph is owned
 by the consumer repository. Once the canonical prerequisite jobs are identified,
